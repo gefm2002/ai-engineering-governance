@@ -46,7 +46,9 @@ Leé el repositorio y completá todos los archivos de /docs-system/ con el estad
 
 El agente lee el código fuente, infiere el comportamiento real del sistema, y genera los documentos. Los `UNKNOWN` se reemplazan con información real.
 
-**¿Qué genera?** 10 documentos en `/docs-system/`:
+**¿Qué genera?** Hasta 12 documentos en `/docs-system/`:
+
+**Requeridos** (todos los proyectos):
 
 | Documento | Qué contiene |
 |-----------|-------------|
@@ -58,9 +60,16 @@ El agente lee el código fuente, infiere el comportamiento real del sistema, y g
 | `OPERATIONS.md` | Build, deploy, runbooks |
 | `TECHNICAL_DEBT_ROADMAP.md` | Deuda activa / cerrada / HUMAN_ONLY |
 | `GAPS.md` | Items abiertos que bloquean |
-| `PLATFORM_STATE.md` | Scorecard por área, bloqueadores |
-| `PRODUCT_ROADMAP.md` | Fases con criterio de done |
-| `PERFORMANCE_REPORT.md` | Mediciones y cuellos de botella |
+
+**Opcionales** (según necesidad del proyecto):
+
+| Documento | Qué contiene |
+|-----------|-------------|
+| `PLATFORM_STATE.md` | Scorecard por área, bloqueadores activos |
+| `PRODUCT_ROADMAP.md` | Fases con entregables y criterio de done |
+| `PERFORMANCE_REPORT.md` | Mediciones before/after con metodología |
+| `TESTING_STRATEGY.md` | Flujos vs cobertura real, bypasses documentados, gaps de testing |
+| `DIAGRAMS.md` | Diagramas Mermaid: contexto, componentes, secuencias, data flow, dependencias, ER |
 
 **Verificar que funciona:**
 ```
@@ -248,7 +257,21 @@ Luego actualizá solo los documentos que no reflejan el comportamiento real.
 
 **Cuándo hacerlo:** Al inicio de un sprint, antes de una sesión de cambios importantes, o cuando el equipo siente que "los docs no reflejan lo que hay".
 
-**Automatizar con CI:** El `ci/docs-validation-example.yml` bloquea un PR si hay cambios de código sin cambios en `/docs-system/`. El `ci/quality-gate-example.yml` va más lejos — corre los tests completos, detecta bypasses, y audita cobertura por flujo P0. Ver la sección CI más abajo.
+**Automatizar con CI y hooks:** El framework tiene tres capas de enforcement:
+
+```
+1. git pre-push hook (local)
+   → bloquea el push si hay código cambiado sin docs-system actualizado
+   → escape: git push -o skip-governance-check
+
+2. ci/docs-validation-example.yml (PR)
+   → mismo chequeo en el servidor, antes del merge
+
+3. ci/quality-gate-example.yml (PR)
+   → tests completos + bypass audit + coverage por criticidad de flujo
+```
+
+Ver la sección **CI y hooks** más abajo.
 
 ---
 
@@ -356,6 +379,45 @@ Todos los adapters implementan la misma regla core: [`rules/engineering-governan
 
 ---
 
+## CI y hooks
+
+### Pre-push hook (gate local)
+
+El hook bloquea el push antes de que llegue al servidor.
+
+```bash
+# Ya incluido en install.sh — se instala automáticamente en .git/hooks/pre-push
+# Para instalar manualmente:
+cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+```
+
+**Comportamiento:**
+
+```
+$ git push
+[governance] Push bloqueado — docs-system no actualizado
+
+  Se detectaron cambios de código sin actualización en /docs-system.
+
+  Archivos de código modificados:
+    - src/domain/sentToVtex.service.ts
+    - src/modules/vtex/buildToVtexObject.ts
+
+  Qué actualizar según el tipo de cambio:
+    Nueva funcionalidad    → PRODUCT_SURFACE.md + USER_FLOW_MATRIX.md
+    Cambio de integración  → INTEGRATIONS.md
+    Cambio de arquitectura → ARCHITECTURE.md + DIAGRAMS.md
+    Bug fix / deuda        → TECHNICAL_DEBT_ROADMAP.md
+    Gap resuelto           → GAPS.md
+
+  Si el cambio no requiere actualizar docs (ej: refactor interno):
+  git push -o skip-governance-check
+```
+
+El escape hatch queda visible en el historial de git — es una decisión consciente, no silenciosa.
+
+---
+
 ## CI — Quality Gate
 
 El framework incluye dos archivos de CI en `ci/`:
@@ -432,7 +494,7 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │   ├── cline.md                ← Cline / Roo (.clinerules)
 │   └── aider.md                ← Aider (.aider.conf.yml)
 │
-├── templates/                  ← templates para /docs-system (11 archivos)
+├── templates/                  ← templates para /docs-system (13 archivos)
 │   ├── PRODUCT_SURFACE.template.md
 │   ├── USER_FLOW_MATRIX.template.md
 │   ├── ARCHITECTURE.template.md
@@ -442,13 +504,32 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │   ├── GAPS.template.md
 │   ├── PLATFORM_STATE.template.md
 │   ├── PRODUCT_ROADMAP.template.md
-│   └── PERFORMANCE_REPORT.template.md
+│   ├── PERFORMANCE_REPORT.template.md
+│   ├── TESTING_STRATEGY.template.md
+│   └── DIAGRAMS.template.md
 │
 ├── examples/
-│   └── docs-system/            ← ejemplo de /docs-system documentado
+│   └── docs-system/            ← docs-system completo de notifications-service
+│       ├── 00_INDEX.md
+│       ├── PRODUCT_SURFACE.md
+│       ├── USER_FLOW_MATRIX.md
+│       ├── ARCHITECTURE.md
+│       ├── INTEGRATIONS.md
+│       ├── OPERATIONS.md
+│       ├── TECHNICAL_DEBT_ROADMAP.md
+│       ├── GAPS.md
+│       ├── PLATFORM_STATE.md
+│       ├── PRODUCT_ROADMAP.md
+│       ├── PERFORMANCE_REPORT.md
+│       ├── TESTING_STRATEGY.md
+│       └── DIAGRAMS.md         ← 8 diagramas Mermaid del sistema
+│
+├── hooks/
+│   └── pre-push                ← git hook: bloquea push sin docs-system actualizado
 │
 └── ci/
-    └── docs-validation-example.yml  ← CI que bloquea código sin docs actualizados
+    ├── docs-validation-example.yml  ← bloquea PR sin docs actualizados
+    └── quality-gate-example.yml     ← gate completo: tests + bypass + coverage + docs
 ```
 
 ---

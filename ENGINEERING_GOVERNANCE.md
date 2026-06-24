@@ -233,13 +233,16 @@ Sin .skip, sin .only, sin fake assertions.
 | Tipo de cambio | Documentos a actualizar |
 |----------------|------------------------|
 | Nueva funcionalidad | PRODUCT_SURFACE, USER_FLOW_MATRIX |
-| Cambio de arquitectura | ARCHITECTURE |
-| Nueva integración o cambio de contrato | INTEGRATIONS |
+| Cambio de arquitectura | ARCHITECTURE, **DIAGRAMS** |
+| Nueva integración o cambio de contrato | INTEGRATIONS, **DIAGRAMS** (diagrama de dependencias) |
 | Cambio operativo (deploy, runbook) | OPERATIONS |
 | Introducción de deuda técnica | TECHNICAL_DEBT_ROADMAP |
 | Gap resuelto | GAPS (eliminar el item) |
 | Cambio de estado del producto | PLATFORM_STATE |
 | Nuevo hito de roadmap completado | PRODUCT_ROADMAP |
+| Cambio en flujos P0/P1 o cobertura de tests | TESTING_STRATEGY |
+| Cambio en modelo de datos | DIAGRAMS (diagrama ER) |
+| Cambio en secuencia de componentes | DIAGRAMS (diagrama de secuencia) |
 
 ---
 
@@ -254,6 +257,20 @@ Todo PR debe responder:
 5. Qué evidencia valida el cambio.
 
 Un PR que modifica comportamiento sin actualizar `/docs-system/` no está completo.
+
+---
+
+## Enforcement — tres capas
+
+El framework tiene enforcement en tres niveles para que la disciplina no dependa solo de la voluntad del equipo:
+
+| Capa | Cuándo actúa | Cómo |
+|------|-------------|------|
+| **pre-push hook** | Antes del push local | Bloquea si hay código sin docs actualizado. Escape: `git push -o skip-governance-check` |
+| **CI docs-validation** | En el PR (GitHub Actions) | Mismo chequeo en el servidor. Escape: título del PR incluye `[skip-docs]` |
+| **CI quality-gate** | En el PR (GitHub Actions) | Tests completos + bypass audit + coverage por criticidad de flujo |
+
+Los escape hatches son intencionales: deben existir para no bloquear trabajo legítimo. La condición es que sean visibles — en el historial de commits o en el título del PR — y no silenciosos.
 
 ---
 

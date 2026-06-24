@@ -242,6 +242,7 @@ install_docs_system() {
     "PRODUCT_ROADMAP.md"
     "PERFORMANCE_REPORT.md"
     "TESTING_STRATEGY.md"
+    "DIAGRAMS.md"
   )
 
   log "Creating optional docs (fill if relevant to your project)..."

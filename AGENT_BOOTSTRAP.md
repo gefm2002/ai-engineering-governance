@@ -81,7 +81,10 @@ docs-system/
 docs-system/
 ├── PLATFORM_STATE.md           ← scorecard por área, bloqueadores activos
 ├── PRODUCT_ROADMAP.md          ← fases con entregables y criterio de done
-└── PERFORMANCE_REPORT.md       ← mediciones before/after con metodología
+├── PERFORMANCE_REPORT.md       ← mediciones before/after con metodología
+├── TESTING_STRATEGY.md         ← flujos vs cobertura real, bypasses, gaps
+└── DIAGRAMS.md                 ← diagramas Mermaid: contexto, secuencias,
+                                   componentes, data flow, dependencias, ER
 ```
 
 Usar los templates de [`templates/`](templates/) de este repo.  

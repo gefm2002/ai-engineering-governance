@@ -252,6 +252,25 @@ install_docs_system() {
   done
 }
 
+# ─── Instalar git hooks ───────────────────────────────────────────────────────
+
+install_hooks() {
+  local hooks_dir="${TARGET_DIR}/.git/hooks"
+
+  if [[ ! -d "$hooks_dir" ]]; then
+    warn "No .git/hooks directory found — skipping hooks install."
+    return
+  fi
+
+  log "Installing pre-push hook..."
+  get_file "hooks/pre-push" "${hooks_dir}/pre-push"
+
+  if [[ "$DRY_RUN" == "false" && -f "${hooks_dir}/pre-push" ]]; then
+    chmod +x "${hooks_dir}/pre-push"
+    success "pre-push hook installed and made executable."
+  fi
+}
+
 # ─── Crear GOVERNANCE_INSTALLED.md ───────────────────────────────────────────
 
 mark_installed() {
@@ -319,6 +338,7 @@ case "$TOOL" in
 esac
 
 install_docs_system
+install_hooks
 mark_installed
 
 echo ""

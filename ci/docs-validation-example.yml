@@ -1,0 +1,54 @@
+# docs-validation-example.yml
+#
+# Valida que si cambia código, también debe cambiar docs-system.
+# Agregar a .github/workflows/ en el repo objetivo.
+
+name: Docs Validation
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  validate-docs:
+    name: Validate docs-system is updated
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check docs-system updated alongside code changes
+        run: |
+          # Archivos de código modificados (excluye docs-system y archivos de config)
+          CODE_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -v '^docs-system/' \
+            | grep -v '^\.github/' \
+            | grep -v '^\.cursor/' \
+            | grep -v 'README.md' \
+            | grep -E '\.(ts|tsx|js|jsx|py|go|rb|java|cs|php|swift|kt|rs)$' \
+            | wc -l)
+
+          # Archivos de docs-system modificados
+          DOCS_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep '^docs-system/' \
+            | wc -l)
+
+          echo "Code files changed: $CODE_CHANGED"
+          echo "Docs files changed: $DOCS_CHANGED"
+
+          if [ "$CODE_CHANGED" -gt 0 ] && [ "$DOCS_CHANGED" -eq 0 ]; then
+            echo ""
+            echo "❌ ERROR: Code changed without updating docs-system."
+            echo ""
+            echo "This PR modifies code but does not update /docs-system."
+            echo ""
+            echo "Required: update at least one file in /docs-system/ that"
+            echo "reflects the behavior changed in this PR."
+            echo ""
+            echo "See ENGINEERING_GOVERNANCE.md for the required process."
+            exit 1
+          fi
+
+          echo "✅ Docs validation passed."

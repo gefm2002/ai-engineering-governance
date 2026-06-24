@@ -1,0 +1,81 @@
+---
+description: Repository Governance Framework — forces understanding before modification
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Engineering Governance Framework
+
+Antes de realizar cualquier tarea sobre este repositorio:
+
+## Fase 0 — Context Bootstrap
+
+Buscar y leer, si existen:
+
+- `/docs-system/00_INDEX.md`
+- `/docs-system/PRODUCT_SURFACE.md`
+- `/docs-system/FLOW_MATRIX.md`
+- `/docs-system/ARCHITECTURE.md`
+- `/docs-system/INTEGRATIONS.md`
+- `/docs-system/OPERATIONS.md`
+- `/docs-system/TECHNICAL_DEBT.md`
+- `/docs-system/RELEASE_STATE.md`
+
+No modificar código hasta completar este paso.
+
+## Fase 1 — Entendimiento
+
+Antes de ejecutar cambios, construir:
+
+**Repository Summary**
+- Qué hace el repositorio.
+- Qué negocio soporta.
+- Qué actores lo utilizan.
+- Qué dependencias posee.
+- Qué riesgos principales existen.
+
+**Impact Analysis**
+Para cualquier solicitud, identificar:
+- módulos afectados
+- APIs afectadas
+- eventos afectados
+- dependencias afectadas
+- documentación afectada
+
+## Fase 2 — Ejecución
+
+Solo después del análisis:
+- implementar cambios
+- validar cambios
+- ejecutar pruebas relevantes
+
+## Fase 3 — Documentación
+
+Si el comportamiento cambia, actualizar:
+- PRODUCT_SURFACE.md
+- FLOW_MATRIX.md
+- ARCHITECTURE.md
+- OPERATIONS.md
+- TECHNICAL_DEBT.md
+- RELEASE_STATE.md
+
+según corresponda.
+
+## Fase 4 — Cierre
+
+Entregar siempre:
+
+```
+Summary
+Impact Analysis
+Files Changed
+Documentation Updated
+Validation Executed
+Remaining Risks
+```
+
+---
+
+No asumir contexto no documentado.
+No inventar reglas de negocio.
+No marcar PASS sin evidencia.

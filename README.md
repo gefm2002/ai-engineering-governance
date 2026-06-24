@@ -208,6 +208,64 @@ y PRODUCT_ROADMAP.md, generá un plan de trabajo priorizado que incluya:
 
 ---
 
+### Combinación con otros skills
+
+Este framework no reemplaza otros skills — los **potencia**. El framework provee contexto del sistema; los otros skills proveen capacidad especializada. Se usan en capas.
+
+**Cómo funciona:**
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ESTE FRAMEWORK                                              │
+│  "qué es el sistema, qué reglas tiene, qué impacta qué"     │
+│                          +                                   │
+│  OTRO SKILL                                                  │
+│  "cómo ejecutar esa tarea específica con profundidad"        │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Ejemplos de combinación:**
+
+```
+# Code review con contexto de negocio
+Leé /docs-system/ como contexto.
+Luego ejecutá /code-review sobre los cambios de este PR.
+Considerá el impacto en los flujos documentados en USER_FLOW_MATRIX.md.
+```
+
+```
+# Tech debt con contexto del roadmap
+Leé /docs-system/TECHNICAL_DEBT_ROADMAP.md y PRODUCT_ROADMAP.md.
+Luego ejecutá /engineering:tech-debt para priorizar qué resolver primero.
+```
+
+```
+# Diseño de arquitectura con contexto del sistema actual
+Leé /docs-system/ARCHITECTURE.md e INTEGRATIONS.md.
+Luego ejecutá /engineering:architecture para proponer el cambio.
+Cualquier propuesta que contradiga las decisiones documentadas en ARCHITECTURE.md
+debe justificarse explícitamente.
+```
+
+```
+# Testing strategy con contexto de flujos críticos
+Leé /docs-system/USER_FLOW_MATRIX.md — los flujos P0 son los que no pueden fallar.
+Luego ejecutá /engineering:testing-strategy priorizando cobertura de esos flujos.
+```
+
+```
+# Incident response con contexto operativo
+Leé /docs-system/OPERATIONS.md y GAPS.md antes de diagnosticar.
+Luego ejecutá /engineering:incident-response.
+Los runbooks en OPERATIONS.md son el punto de partida.
+```
+
+**Regla de combinación:**
+
+El framework siempre va primero — carga el contexto antes de que el otro skill actúe. Si el skill genera recomendaciones que contradicen lo documentado en `/docs-system/`, esa contradicción debe resolverse explícitamente antes de implementar.
+
+---
+
 ## Instalación — opciones completas
 
 ### Opción A — Terminal (una línea)

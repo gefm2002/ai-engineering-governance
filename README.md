@@ -138,6 +138,76 @@ Si el cambio modifica comportamiento existente, actualizá /docs-system/.
 
 ---
 
+### Momento 3 — Evaluación y plan de trabajo (sin tocar código)
+
+Cuando querés entender el estado real del repo, identificar qué está roto o en deuda, y definir qué trabajar primero — sin necesariamente hacer cambios.
+
+**Cómo funciona en la práctica:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SESIÓN DE PLANIFICACIÓN                                    │
+│                                                             │
+│  1. Cargás /docs-system/ como contexto                      │
+│     → el agente lee GAPS, TECHNICAL_DEBT_ROADMAP,           │
+│       PLATFORM_STATE, PRODUCT_ROADMAP                       │
+│                                                             │
+│  2. El agente evalúa el estado actual                       │
+│     → cruza gaps, deuda, scorecard y roadmap                │
+│     → identifica qué bloquea qué                            │
+│                                                             │
+│  3. El agente genera un plan de trabajo                     │
+│     → priorizado, con dependencias explícitas               │
+│     → separa lo que puede hacer solo de lo que              │
+│       requiere decisión humana (HUMAN_ONLY)                 │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Prompt para evaluación y plan:**
+
+```
+Leé /docs-system/ completo. No modifiques código ni documentación.
+
+Con base en GAPS.md, TECHNICAL_DEBT_ROADMAP.md, PLATFORM_STATE.md
+y PRODUCT_ROADMAP.md, generá un plan de trabajo priorizado que incluya:
+
+1. Estado actual del sistema (resumen ejecutivo)
+2. Qué está bloqueando qué (dependencias entre gaps y deuda)
+3. Plan de trabajo ordenado por impacto/esfuerzo
+4. Qué items requieren decisión humana antes de poder ejecutarse (HUMAN_ONLY)
+5. Qué podés ejecutar vos directamente en la próxima sesión
+```
+
+**El agente responde con:**
+
+```
+## Estado actual
+[resumen del scorecard de PLATFORM_STATE — qué está 🟢/🟡/🔴]
+
+## Mapa de dependencias
+[qué gaps bloquean qué items de roadmap, qué deuda bloquea qué gaps]
+
+## Plan de trabajo — ordenado por impacto/esfuerzo
+| Prioridad | Item | Tipo | Esfuerzo | Bloquea |
+|-----------|------|------|----------|---------|
+| 1 | ...  | Gap/Deuda/Roadmap | Alto/Medio/Bajo | ... |
+
+## Requiere decisión humana antes de ejecutar (HUMAN_ONLY)
+[lista de items de GAPS.md marcados como HUMAN_ONLY con contexto]
+
+## Podés pedirme en la próxima sesión
+[lista de cambios concretos que el agente puede implementar directamente
+ una vez que los HUMAN_ONLY estén resueltos]
+```
+
+**Cuándo usar este momento:**
+- Al empezar un sprint o ciclo de trabajo
+- Cuando recibís un repo sin contexto y necesitás entender por dónde empezar
+- Antes de planificar refactors o migraciones
+- Cuando querés priorizar deuda técnica sin sesgarte por lo más visible
+
+---
+
 ## Instalación — opciones completas
 
 ### Opción A — Terminal (una línea)

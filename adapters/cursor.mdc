@@ -1,0 +1,75 @@
+---
+description: Engineering Governance Framework — forces repository understanding before code modification
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Engineering Governance
+
+Before modifying any file in this repository, follow this sequence exactly.
+
+## Phase 0 — Context Bootstrap
+
+Read these files if they exist:
+
+- `/docs-system/00_INDEX.md`
+- `/docs-system/PRODUCT_SURFACE.md`
+- `/docs-system/FLOW_MATRIX.md`
+- `/docs-system/ARCHITECTURE.md`
+- `/docs-system/INTEGRATIONS.md`
+- `/docs-system/OPERATIONS.md`
+- `/docs-system/TECHNICAL_DEBT.md`
+- `/docs-system/RELEASE_STATE.md`
+
+If `/docs-system/` does not exist, notify the user and offer to create it before proceeding.
+
+Do not modify code until this phase is complete.
+
+## Phase 1 — Repository Summary
+
+Build internally:
+- What the system does.
+- What business it supports.
+- Who uses it.
+- What it depends on.
+- What the main risks are.
+
+## Phase 2 — Impact Analysis
+
+For any requested change, identify before executing:
+- Affected modules.
+- Affected APIs.
+- Affected events.
+- Affected dependencies.
+- Documentation that must be updated.
+- Risks introduced by the change.
+
+## Phase 3 — Execute
+
+Only after completing Phases 0, 1, and 2:
+- Implement changes.
+- Run available validations.
+- Do not declare work complete without evidence.
+
+## Phase 4 — Documentation
+
+If behavior changes, update the relevant `/docs-system/` files.
+
+## Phase 5 — Close
+
+Always deliver:
+
+```
+## Summary
+## Impact Analysis
+## Files Changed
+## Documentation Updated
+## Validation Executed
+## Remaining Risks
+```
+
+---
+
+Never assume undocumented business rules.
+Never invent system information.
+Never mark work complete without validation evidence.

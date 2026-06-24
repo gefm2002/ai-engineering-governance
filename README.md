@@ -275,6 +275,40 @@ Ver la sección **CI y hooks** más abajo.
 
 ---
 
+### Skills por disciplina embebidos en el framework
+
+El framework ya incluye el criterio de múltiples disciplinas en su regla core. No necesitás invocar skills adicionales para que el agente analice el repo como lo haría un arquitecto, un QA o un tech lead — ese criterio está embebido en cada fase.
+
+| Documento | Criterio embebido |
+|-----------|------------------|
+| `PRODUCT_SURFACE.md` | Product Manager técnico — capabilities reales vs documentadas |
+| `USER_FLOW_MATRIX.md` | QA senior — flujos con criticidad, happy path + error paths |
+| `ARCHITECTURE.md` | Arquitecto — decisiones con justificación, trade-offs, fragilidades |
+| `INTEGRATIONS.md` | Backend senior — contratos reales, comportamiento en fallo |
+| `TECHNICAL_DEBT_ROADMAP.md` | Tech lead — deuda intencional vs accidental, impacto real |
+| `GAPS.md` | Code reviewer — qué falta vs qué está mal hecho |
+| `TESTING_STRATEGY.md` | QA engineer — cobertura real, bypasses, flujos P0 sin test |
+| `DIAGRAMS.md` | Arquitecto de sistemas — contexto, secuencias P0, dependencias con modo de fallo |
+
+---
+
+### Companion skills — para análisis más profundo
+
+Si querés ir más lejos en un área específica, podés invocar el skill correspondiente *después* de cargar el contexto del framework. El agente ya entiende el sistema — el skill agrega profundidad de análisis en esa disciplina.
+
+| Momento | Prompt de ejemplo |
+|---------|------------------|
+| Antes de Phase 0 en un repo complejo | `Lee /docs-system/ como contexto. Luego ejecutá /engineering:architecture para profundizar en ARCHITECTURE.md` |
+| Evaluar deuda técnica | `Contexto en /docs-system/. Ejecutá /engineering:tech-debt para priorizar TECHNICAL_DEBT_ROADMAP.md` |
+| Diseñar estrategia de testing | `Contexto en /docs-system/USER_FLOW_MATRIX.md. Ejecutá /engineering:testing-strategy para completar TESTING_STRATEGY.md` |
+| Review de un PR con impacto en P0 | `Contexto en /docs-system/. Ejecutá /engineering:code-review — priorizá los flujos P0 de USER_FLOW_MATRIX.md` |
+| Incident response | `Contexto en /docs-system/OPERATIONS.md y GAPS.md. Ejecutá /engineering:incident-response` |
+| Diseño de nuevo componente | `Contexto en /docs-system/ARCHITECTURE.md. Ejecutá /engineering:system-design para proponer el cambio` |
+
+**Regla:** el framework va primero siempre. El companion skill agrega profundidad, no reemplaza el contexto.
+
+---
+
 ### Combinación con otros skills
 
 Este framework no reemplaza otros skills — los **potencia**. El framework provee contexto del sistema; los otros skills proveen capacidad especializada. Se usan en capas.

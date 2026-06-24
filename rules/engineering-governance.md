@@ -51,31 +51,93 @@ Si `/docs-system/` no existe: notificar al usuario y ofrecer crearlo con la Fase
 
 ## Fase 1 — Repository Summary
 
+Pensar como **ingeniero senior + product owner técnico**: el objetivo no es listar archivos sino entender qué problema de negocio resuelve el sistema y qué lo hace frágil.
+
 Generar internamente (no necesariamente mostrar, pero sí tener disponible):
 
 ```
 Sistema: [nombre]
-Propósito: [qué hace]
-Negocio que soporta: [qué área / proceso]
-Actores: [quién lo usa]
-Dependencias críticas: [qué rompe si falla]
-Riesgos principales: [qué puede salir mal]
+Propósito: [qué hace en términos de negocio, no técnicos]
+Negocio que soporta: [qué área / proceso / decisión depende de este sistema]
+Actores: [quién lo usa directamente y quién depende de él indirectamente]
+Dependencias críticas: [qué rompe el sistema si falla — con impacto de negocio]
+Fragilidades conocidas: [qué partes del código o del diseño son propensas a errores]
+Riesgos principales: [qué puede salir mal en producción]
 ```
+
+---
+
+## Criterio por disciplina — cómo analizar cada documento
+
+Al generar o actualizar cada documento de `/docs-system/`, aplicar el criterio de la disciplina correspondiente:
+
+### Al generar PRODUCT_SURFACE.md — criterio de Product Manager técnico
+- Identificar capabilities reales (lo que el sistema *hace*, no lo que *debería* hacer)
+- Distinguir entre lo que está implementado, lo que está parcialmente implementado y lo que está documentado pero no existe
+- Identificar actores reales (incluyendo sistemas upstream/downstream, no solo usuarios humanos)
+- Capturar reglas de negocio implícitas en el código (condicionales, constantes, enums con semántica de negocio)
+
+### Al generar USER_FLOW_MATRIX.md — criterio de QA senior
+- Pensar en términos de caminos del usuario/sistema, no de funciones del código
+- Asignar criticidad P0/P1/P2/P3 basada en: impacto económico si falla, frecuencia de uso, imposibilidad de recuperación manual
+- P0 = falla silenciosa o con impacto en revenue/datos sin posibilidad de retry manual
+- Identificar happy path Y error paths para cada flujo
+- Señalar flujos sin cobertura de tests o con cobertura parcial
+
+### Al generar ARCHITECTURE.md — criterio de arquitecto de software
+- Documentar decisiones de diseño con su justificación (no solo "qué es" sino "por qué es así")
+- Identificar trade-offs activos: qué se sacrificó para lograr qué
+- Señalar fragilidades arquitectónicas: acoplamiento alto, falta de abstracción, dependencias circulares
+- Documentar patrones usados y dónde se rompen
+- Distinguir entre decisiones conscientes y deuda acumulada sin decisión
+
+### Al generar INTEGRATIONS.md — criterio de ingeniero de backend senior
+- Documentar el contrato real (payload, tipos, errores posibles) no el contrato ideal
+- Identificar qué pasa cuando la integración falla: ¿el sistema falla silenciosamente? ¿hace retry? ¿alerta?
+- Documentar timeouts, rate limits y comportamiento en degradación
+- Señalar integraciones sin circuit breaker o sin manejo de error documentado
+
+### Al generar TECHNICAL_DEBT_ROADMAP.md — criterio de tech lead
+- Distinguir deuda intencional (decisión consciente con plan de pago) de deuda accidental (nadie la decidió, simplemente está)
+- Evaluar impacto en: mantenibilidad, performance, seguridad, onboarding de nuevos devs
+- No listar todo como deuda — solo lo que tiene costo real hoy o en el futuro próximo
+- Identificar items que requieren decisión humana (HUMAN_ONLY) vs los que el agente puede resolver
+
+### Al generar GAPS.md — criterio de code reviewer senior
+- Un gap es funcionalidad que el sistema debería tener según su propósito pero no tiene
+- No confundir con deuda técnica (cómo está hecho) ni con roadmap (qué se quiere agregar)
+- Distinguir gaps que bloquean flujos P0/P1 (críticos) de los que afectan flujos P2/P3 (nice to have)
+- Documentar el impacto real de cada gap, no solo su existencia
+
+### Al generar TESTING_STRATEGY.md — criterio de QA engineer
+- Mapear cada flujo de USER_FLOW_MATRIX a sus archivos de test existentes
+- Evaluar si los tests cubren el happy path Y los error paths principales
+- Detectar bypasses (.skip, .only, continue-on-error) y documentar si son conscientes o accidentales
+- Identificar flujos P0 sin tests o con cobertura insuficiente — estos son riesgos de release
+
+### Al generar DIAGRAMS.md — criterio de arquitecto de sistemas
+- El diagrama de contexto debe poder ser entendido por alguien sin contexto técnico
+- El diagrama de secuencia debe mostrar los flujos P0 con sus caminos de error
+- El diagrama de dependencias debe indicar qué pasa cuando cada dependencia falla
+- Preferir claridad sobre completitud — un diagrama útil es mejor que uno exhaustivo e ilegible
 
 ---
 
 ## Fase 2 — Impact Analysis
 
-Para cualquier cambio solicitado, antes de ejecutarlo:
+Pensar como **code reviewer senior**: antes de ejecutar cualquier cambio, identificar todo lo que puede romperse y comunicarlo.
+
+Para cualquier cambio solicitado:
 
 ```
 Cambio solicitado: [descripción]
-Módulos afectados: [lista]
-APIs afectadas: [lista]
-Eventos afectados: [lista]
-Dependencias afectadas: [lista]
-Documentación que debe actualizarse: [lista]
-Riesgos del cambio: [lista]
+Módulos afectados: [lista con razón]
+APIs/contratos afectados: [lista — cambio de input/output/error codes]
+Flujos de USER_FLOW_MATRIX afectados: [IDs con criticidad]
+Dependencias afectadas: [servicios externos, DBs, colas]
+Documentación que debe actualizarse: [lista de docs de /docs-system/]
+Riesgos del cambio: [qué puede fallar, con qué probabilidad y qué impacto]
+Casos borde no contemplados: [qué escenarios el cambio no maneja explícitamente]
 ```
 
 Si el análisis revela riesgos no contemplados en la solicitud, comunicarlos antes de continuar.
@@ -84,11 +146,14 @@ Si el análisis revela riesgos no contemplados en la solicitud, comunicarlos ant
 
 ## Fase 3 — Ejecución
 
+Pensar como **senior developer con ownership**: implementar con el mismo criterio con que uno firmaría el código en producción.
+
 Solo después de completar Fases 0, 1 y 2:
 
 - Implementar el cambio.
-- Ejecutar validaciones disponibles (tests, builds, linters).
-- No declarar el cambio como completo sin evidencia.
+- Escribir o actualizar tests al nivel de criticidad del flujo afectado (P0 → integration, P1 → unit)
+- Ejecutar validaciones disponibles (tests, builds, linters) — sin `continue-on-error`
+- No declarar el cambio como completo sin evidencia de que los tests pasan.
 
 ---
 

@@ -1,0 +1,376 @@
+# quality-gate-example.yml
+#
+# CI completo de calidad — corre en cada PR hacia main/master/develop.
+# No es un smoke test. Es el gate que decide si el código puede mergearse.
+#
+# Qué valida:
+#   1. Tests corren y pasan — sin continue-on-error, sin escape hatches
+#   2. Coverage mínimo por criticidad de flujo (P0 > 80%, P1 > 60%)
+#   3. Detección de bypasses: skip(), .only, continue-on-error, tests vacíos
+#   4. Cobertura de flujos P0 — cada flujo crítico debe tener al menos 1 test
+#   5. docs-system actualizado si el código cambió (del Momento 4)
+#
+# Cómo usar:
+#   cp ci/quality-gate-example.yml .github/workflows/quality-gate.yml
+#   Ajustar TEST_CMD, COVERAGE_CMD y COVERAGE_FILE según tu stack.
+#
+# Variables a configurar por repo:
+#   TEST_CMD        → comando para correr los tests (ej: npm test, pytest, go test ./...)
+#   COVERAGE_CMD    → comando para generar coverage (ej: npm run test:cov)
+#   COVERAGE_FILE   → archivo de coverage generado (ej: coverage/coverage-summary.json)
+#   COVERAGE_FORMAT → formato del archivo (lcov | json-summary | cobertura)
+#   MIN_COVERAGE_P0 → cobertura mínima para flujos P0 (default: 80)
+#   MIN_COVERAGE_P1 → cobertura mínima para flujos P1 (default: 60)
+
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main, master, develop]
+
+env:
+  TEST_CMD: npm test
+  COVERAGE_CMD: npm run test:ci
+  COVERAGE_FILE: coverage/coverage-summary.json
+  MIN_COVERAGE_P0: 80
+  MIN_COVERAGE_P1: 60
+
+jobs:
+
+  # ─── Job 1: Detectar bypasses ANTES de correr tests ─────────────────────────
+  bypass-audit:
+    name: 🔍 Bypass audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect test bypass patterns
+        run: |
+          FAILED=0
+
+          echo "=== Auditando patrones de bypass en tests ==="
+          echo ""
+
+          # 1. skip() / xit() / xdescribe() / test.skip / it.skip
+          SKIPPED=$(grep -rn \
+            --include="*.spec.ts" --include="*.spec.js" \
+            --include="*.test.ts" --include="*.test.js" \
+            --include="*.spec.tsx" --include="*.test.tsx" \
+            -E "(\.skip|xdescribe|xit\(|xtest\()" \
+            . 2>/dev/null | grep -v node_modules || true)
+
+          if [ -n "$SKIPPED" ]; then
+            echo "❌ TESTS SALTADOS DETECTADOS:"
+            echo "$SKIPPED"
+            echo ""
+            echo "Los tests marcados con .skip, xdescribe, xit o xtest no se ejecutan."
+            echo "Si el test está roto, arreglarlo. Si es intencional, documentarlo en"
+            echo "TECHNICAL_DEBT_ROADMAP.md bajo ## Deuda activa."
+            FAILED=1
+          else
+            echo "✅ No hay tests con .skip / xdescribe / xit"
+          fi
+
+          # 2. .only — corre solo ese test, el resto no se ejecuta
+          ONLY=$(grep -rn \
+            --include="*.spec.ts" --include="*.spec.js" \
+            --include="*.test.ts" --include="*.test.js" \
+            -E "\.(only)\(" \
+            . 2>/dev/null | grep -v node_modules || true)
+
+          if [ -n "$ONLY" ]; then
+            echo ""
+            echo "❌ .only DETECTADO — solo ese test corre, el resto no:"
+            echo "$ONLY"
+            echo ""
+            echo "Eliminar .only antes de mergear. Fue útil para desarrollo local,"
+            echo "no debe llegar a main."
+            FAILED=1
+          else
+            echo "✅ No hay tests con .only"
+          fi
+
+          # 3. Tests con cuerpo vacío o fake assertions
+          EMPTY=$(grep -rn \
+            --include="*.spec.ts" --include="*.spec.js" \
+            --include="*.test.ts" --include="*.test.js" \
+            -E "(it\(['\"][^'\"]+['\"],\s*\(\)\s*=>\s*\{\s*\}|expect\(true\)\.toBe\(true\)|expect\(1\)\.toBe\(1\))" \
+            . 2>/dev/null | grep -v node_modules || true)
+
+          if [ -n "$EMPTY" ]; then
+            echo ""
+            echo "⚠️  TESTS VACÍOS O CON ASSERTIONS FALSAS DETECTADOS:"
+            echo "$EMPTY"
+            echo ""
+            echo "Un test que siempre pasa no aporta cobertura real."
+            FAILED=1
+          else
+            echo "✅ No hay tests vacíos ni fake assertions"
+          fi
+
+          # 4. continue-on-error en workflows de CI
+          CONTINUE_ON_ERROR=$(grep -rn "continue-on-error: true" .github/workflows/ 2>/dev/null || true)
+
+          if [ -n "$CONTINUE_ON_ERROR" ]; then
+            echo ""
+            echo "⚠️  continue-on-error: true DETECTADO en CI:"
+            echo "$CONTINUE_ON_ERROR"
+            echo ""
+            echo "Esto permite que tests fallidos lleguen a producción."
+            echo "Si fue un workaround temporal, documentarlo en GAPS.md y planificar remoción."
+            echo "Este job NO falla por esto — es una advertencia. Revisarlo manualmente."
+          else
+            echo "✅ No hay continue-on-error en workflows"
+          fi
+
+          # 5. --passWithNoTests o --forceExit sin justificación
+          FORCE_FLAGS=$(grep -rn \
+            --include="*.json" --include="*.yml" --include="*.yaml" \
+            -E "(passWithNoTests|--forceExit)" \
+            . 2>/dev/null | grep -v node_modules || true)
+
+          if [ -n "$FORCE_FLAGS" ]; then
+            echo ""
+            echo "⚠️  FLAGS DE FORCE DETECTADOS:"
+            echo "$FORCE_FLAGS"
+            echo ""
+            echo "--passWithNoTests permite que un test suite vacío cuente como exitoso."
+            echo "Revisar si está justificado."
+          else
+            echo "✅ No hay --passWithNoTests ni --forceExit"
+          fi
+
+          echo ""
+          if [ "$FAILED" -eq 1 ]; then
+            echo "❌ Bypass audit FALLADO — corregir antes de mergear."
+            exit 1
+          else
+            echo "✅ Bypass audit PASADO."
+          fi
+
+  # ─── Job 2: Correr tests completos ──────────────────────────────────────────
+  tests:
+    name: 🧪 Full test suite
+    runs-on: ubuntu-latest
+    needs: bypass-audit
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run full test suite with coverage
+        run: ${{ env.COVERAGE_CMD }}
+        # SIN continue-on-error — si los tests fallan, el job falla.
+        # Si necesitás forzarlo igual, documentalo en GAPS.md y usá [skip-tests] en el PR title.
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  # ─── Job 3: Coverage por criticidad de flujo ────────────────────────────────
+  coverage-audit:
+    name: 📊 Coverage audit
+    runs-on: ubuntu-latest
+    needs: tests
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+      - name: Evaluate coverage thresholds
+        run: |
+          FAILED=0
+
+          if [ ! -f "${{ env.COVERAGE_FILE }}" ]; then
+            echo "⚠️  No se encontró ${{ env.COVERAGE_FILE }}"
+            echo "Asegurate de que COVERAGE_CMD genera este archivo."
+            echo "Formatos soportados: json-summary (Jest), cobertura (pytest), lcov"
+            exit 0
+          fi
+
+          # Extraer cobertura total de lines (JSON Summary de Jest)
+          TOTAL_LINES=$(node -e "
+            const c = require('./${{ env.COVERAGE_FILE }}');
+            const total = c.total || c;
+            console.log(total.lines ? total.lines.pct : 'N/A');
+          " 2>/dev/null || echo "N/A")
+
+          echo "=== Coverage Report ==="
+          echo "Line coverage total: ${TOTAL_LINES}%"
+          echo ""
+
+          if [ "$TOTAL_LINES" != "N/A" ]; then
+            # Verificar coverage mínimo para flujos P0
+            COVERAGE_INT=$(echo "$TOTAL_LINES" | cut -d. -f1)
+            if [ "$COVERAGE_INT" -lt "${{ env.MIN_COVERAGE_P0 }}" ]; then
+              echo "❌ Coverage total ${TOTAL_LINES}% está por debajo del mínimo P0 (${{ env.MIN_COVERAGE_P0 }}%)"
+              FAILED=1
+            else
+              echo "✅ Coverage ${TOTAL_LINES}% ≥ mínimo P0 (${{ env.MIN_COVERAGE_P0 }}%)"
+            fi
+          fi
+
+          if [ "$FAILED" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Audit P0 flow test coverage
+        run: |
+          echo "=== Auditando cobertura de flujos P0 ==="
+          echo ""
+
+          # Extraer flujos P0 de USER_FLOW_MATRIX.md
+          if [ ! -f "docs-system/USER_FLOW_MATRIX.md" ]; then
+            echo "⚠️  docs-system/USER_FLOW_MATRIX.md no encontrado — saltando auditoría de flujos."
+            exit 0
+          fi
+
+          # Extraer IDs de flujos P0 (formato: ### UF-001: Nombre)
+          P0_FLOWS=$(grep -A2 "### UF-" docs-system/USER_FLOW_MATRIX.md \
+            | grep -B1 "P0" \
+            | grep "### UF-" \
+            | sed 's/### //' \
+            | sed 's/:.*//' \
+            || true)
+
+          if [ -z "$P0_FLOWS" ]; then
+            echo "ℹ️  No se encontraron flujos P0 en USER_FLOW_MATRIX.md"
+            exit 0
+          fi
+
+          echo "Flujos P0 documentados:"
+          echo "$P0_FLOWS"
+          echo ""
+
+          MISSING=0
+          while IFS= read -r flow_id; do
+            flow_lower=$(echo "$flow_id" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
+            # Buscar archivos de test que mencionen el flujo por ID o nombre
+            TEST_FILES=$(grep -rl \
+              --include="*.spec.ts" --include="*.spec.js" \
+              --include="*.test.ts" --include="*.test.js" \
+              -i "$flow_id\|$flow_lower" \
+              . 2>/dev/null | grep -v node_modules || true)
+
+            if [ -z "$TEST_FILES" ]; then
+              echo "⚠️  Flujo $flow_id (P0) — sin test file que lo mencione explícitamente"
+              MISSING=$((MISSING + 1))
+            else
+              echo "✅ Flujo $flow_id — cubierto en: $(echo $TEST_FILES | tr '\n' ' ')"
+            fi
+          done <<< "$P0_FLOWS"
+
+          echo ""
+          if [ "$MISSING" -gt 0 ]; then
+            echo "⚠️  $MISSING flujo(s) P0 sin test file asociado."
+            echo ""
+            echo "Los flujos P0 son críticos — el sistema no funciona sin ellos."
+            echo "Se esperan tests de integración o de flujo completo para cada uno."
+            echo ""
+            echo "Si el flujo ya está cubierto pero el test no lo menciona por ID,"
+            echo "agregar un comentario en el test: // covers: UF-001"
+            echo ""
+            echo "Este job NO falla por esto — es un reporte. Registrarlo en GAPS.md"
+            echo "si la cobertura es insuficiente."
+          else
+            echo "✅ Todos los flujos P0 tienen test files asociados."
+          fi
+
+  # ─── Job 4: Validación de docs ───────────────────────────────────────────────
+  docs-validation:
+    name: 📄 docs-system updated?
+    runs-on: ubuntu-latest
+    needs: tests
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check docs-system updated alongside code changes
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          if echo "$PR_TITLE" | grep -q "\[skip-docs\]"; then
+            echo "⚠️  [skip-docs] — omitiendo validación de docs."
+            exit 0
+          fi
+
+          CODE_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -v '^docs-system/' \
+            | grep -v '^\.github/' \
+            | grep -v '^\.cursor/' \
+            | grep -v '^\.agent/' \
+            | grep -v 'README.md' \
+            | grep -v 'CLAUDE.md' \
+            | grep -v '\.windsurfrules' \
+            | grep -v '\.clinerules' \
+            | grep -E '\.(ts|tsx|js|jsx|py|go|rb|java|cs|php|swift|kt|rs)$' \
+            | wc -l)
+
+          DOCS_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep '^docs-system/' \
+            | wc -l)
+
+          echo "Código modificado: $CODE_CHANGED archivos"
+          echo "docs-system modificado: $DOCS_CHANGED archivos"
+
+          if [ "$CODE_CHANGED" -gt 0 ] && [ "$DOCS_CHANGED" -eq 0 ]; then
+            echo ""
+            echo "❌ Código cambiado sin actualizar docs-system."
+            echo "Si el comportamiento no cambia, agregá [skip-docs] al título del PR."
+            exit 1
+          fi
+
+          echo "✅ docs-system al día."
+
+  # ─── Job 5: Resumen del gate ─────────────────────────────────────────────────
+  quality-summary:
+    name: ✅ Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [bypass-audit, tests, coverage-audit, docs-validation]
+    if: always()
+
+    steps:
+      - name: Gate result
+        run: |
+          BYPASS="${{ needs.bypass-audit.result }}"
+          TESTS="${{ needs.tests.result }}"
+          COVERAGE="${{ needs.coverage-audit.result }}"
+          DOCS="${{ needs.docs-validation.result }}"
+
+          echo "=== Quality Gate Results ==="
+          echo ""
+          echo "🔍 Bypass audit:      $BYPASS"
+          echo "🧪 Test suite:        $TESTS"
+          echo "📊 Coverage audit:    $COVERAGE"
+          echo "📄 Docs validation:   $DOCS"
+          echo ""
+
+          if [ "$BYPASS" = "failure" ] || [ "$TESTS" = "failure" ] || \
+             [ "$COVERAGE" = "failure" ] || [ "$DOCS" = "failure" ]; then
+            echo "❌ Quality Gate FALLADO — este PR no puede mergearse."
+            echo ""
+            echo "Revisá los jobs fallados arriba para el detalle."
+            exit 1
+          fi
+
+          echo "✅ Quality Gate PASADO — este PR está listo para review."

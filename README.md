@@ -248,7 +248,7 @@ Luego actualizá solo los documentos que no reflejan el comportamiento real.
 
 **Cuándo hacerlo:** Al inicio de un sprint, antes de una sesión de cambios importantes, o cuando el equipo siente que "los docs no reflejan lo que hay".
 
-**Automatizar con CI:** El `ci/docs-validation-example.yml` bloquea un PR si hay cambios de código sin cambios en `/docs-system/`. Esto convierte el Momento 4 de reactivo a preventivo. Ver [`ci/docs-validation-example.yml`](ci/docs-validation-example.yml).
+**Automatizar con CI:** El `ci/docs-validation-example.yml` bloquea un PR si hay cambios de código sin cambios en `/docs-system/`. El `ci/quality-gate-example.yml` va más lejos — corre los tests completos, detecta bypasses, y audita cobertura por flujo P0. Ver la sección CI más abajo.
 
 ---
 
@@ -352,6 +352,46 @@ y seguí las instrucciones de instalación automática en este repositorio.
 | **Aider** | `.aider.conf.yml` | [`adapters/aider.md`](adapters/aider.md) |
 
 Todos los adapters implementan la misma regla core: [`rules/engineering-governance.md`](rules/engineering-governance.md).
+
+---
+
+## CI — Quality Gate
+
+El framework incluye dos archivos de CI en `ci/`:
+
+| Archivo | Qué hace |
+|---------|----------|
+| [`ci/docs-validation-example.yml`](ci/docs-validation-example.yml) | Bloquea el PR si hay código cambiado sin docs-system actualizado |
+| [`ci/quality-gate-example.yml`](ci/quality-gate-example.yml) | Gate completo: tests + bypass audit + coverage + docs |
+
+### El quality gate tiene 5 jobs
+
+```
+Job 1 — Bypass audit       → detecta .skip, .only, continue-on-error,
+                              tests vacíos, fake assertions, --passWithNoTests
+Job 2 — Full test suite    → corre los tests SIN continue-on-error
+                              si fallan, el PR no puede mergearse
+Job 3 — Coverage audit     → coverage mínimo según criticidad de flujos
+                              P0 exige 80%, P1 exige 60%
+Job 4 — Docs validation    → docs-system actualizado si el código cambió
+Job 5 — Quality summary    → resultado consolidado del gate
+```
+
+### Cómo instalar
+
+```bash
+cp ci/quality-gate-example.yml .github/workflows/quality-gate.yml
+# Ajustar en el yml: TEST_CMD, COVERAGE_CMD, COVERAGE_FILE según tu stack
+```
+
+### Escape hatches (documentados, no silenciosos)
+
+| Escape | Cómo usarlo | Cuándo aplica |
+|--------|-------------|---------------|
+| `[skip-docs]` en título del PR | Omite validación de docs | Refactor interno sin cambio de comportamiento |
+| `[skip-tests]` en título del PR | Omite el test suite | Nunca debería ser necesario — si los tests fallan, arreglarlos |
+
+Cualquier uso de escape hatch debe quedar visible en el historial de PRs como decisión consciente.
 
 ---
 

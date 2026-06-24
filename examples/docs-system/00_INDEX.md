@@ -19,6 +19,7 @@
 | [PLATFORM_STATE.md](PLATFORM_STATE.md) | Scorecard por área, bloqueadores | Alta |
 | [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | Fases con criterio de done | Alta |
 | [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) | Mediciones antes/después del último cambio | Alta |
+| [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | Mapa de flujos vs cobertura real, bypasses documentados | Alta |
 
 ---
 

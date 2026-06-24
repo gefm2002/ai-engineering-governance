@@ -170,6 +170,64 @@ Fase 5 — Cierre
 
 ---
 
+## Gobernanza de testing
+
+### Principio
+
+Un test que siempre pasa no aporta nada. Lo que importa no es que los tests corran — es que prueben comportamiento real con assertions reales.
+
+### Qué nivel de test exige cada criticidad
+
+| Criticidad | Tipo de test requerido | Cobertura mínima | Qué debe cubrir |
+|------------|------------------------|------------------|-----------------|
+| **P0** — el sistema no funciona sin este flujo | Integration test del flujo completo | 80% de líneas del módulo | Happy path + error principal |
+| **P1** — afecta revenue o experiencia principal | Unit test del servicio + happy path | 60% de líneas del módulo | Happy path |
+| **P2** — funcionalidad de soporte | Unit test básico | Sin umbral | Al menos 1 caso |
+| **P3** — nice to have | Nice to have | Sin umbral | — |
+
+Los flujos y su criticidad están documentados en `USER_FLOW_MATRIX.md`.
+
+### Lo que NO cuenta como validado
+
+- `continue-on-error: true` en CI — los tests que fallan llegan a producción
+- `.skip()`, `xit()`, `xdescribe()` — el test no corre
+- `.only()` — solo ese test corre, el resto no
+- Tests con cuerpo vacío — `it('should work', () => {})`
+- Fake assertions — `expect(true).toBe(true)`
+- `--passWithNoTests` — un suite vacío cuenta como exitoso
+
+Cualquiera de estos patrones detectados en un PR debe estar **documentado en `TESTING_STRATEGY.md`** con justificación y plan de resolución.
+
+### Qué hacer al hacer un cambio
+
+Antes de declarar el cambio como completo:
+
+1. Identificar qué flujos del `USER_FLOW_MATRIX.md` afecta el cambio
+2. Verificar que esos flujos tienen tests al nivel requerido por su criticidad
+3. Si no los tienen: crearlos en el mismo PR o documentar el gap en `TESTING_STRATEGY.md`
+4. Reportar en el cierre (Fase 5): qué se corrió, cobertura, si hubo flujos P0/P1 afectados sin test
+
+### Prompt para evaluar cobertura antes de un cambio
+
+```
+Leé /docs-system/USER_FLOW_MATRIX.md y /docs-system/TESTING_STRATEGY.md.
+Identificá qué flujos P0 y P1 afecta el cambio que voy a pedir.
+Verificá si esos flujos tienen cobertura de test al nivel requerido.
+Reportá los gaps antes de implementar.
+```
+
+### Prompt para generar tests de un cambio
+
+```
+El cambio afecta el flujo [UF-00X] del USER_FLOW_MATRIX — criticidad [P0/P1].
+Generá los tests requeridos según el nivel de criticidad:
+- Si P0: integration test del flujo completo (happy path + error principal)
+- Si P1: unit test del servicio (happy path)
+Sin .skip, sin .only, sin fake assertions.
+```
+
+---
+
 ## Qué documento actualizar según el tipo de cambio
 
 | Tipo de cambio | Documentos a actualizar |

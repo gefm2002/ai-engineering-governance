@@ -1,0 +1,232 @@
+name: Release Readiness Gate
+
+# Corre en PRs hacia main/master (releases)
+# Bloquea el merge si el sistema no cumple los criterios de release.
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  release-readiness:
+    name: Release Readiness Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check docs-system completeness
+        id: docs_check
+        run: |
+          REQUIRED=(
+            "docs-system/00_INDEX.md"
+            "docs-system/PRODUCT_SURFACE.md"
+            "docs-system/USER_FLOW_MATRIX.md"
+            "docs-system/ARCHITECTURE.md"
+            "docs-system/INTEGRATIONS.md"
+            "docs-system/OPERATIONS.md"
+            "docs-system/TECHNICAL_DEBT_ROADMAP.md"
+            "docs-system/GAPS.md"
+          )
+
+          MISSING=()
+          for f in "${REQUIRED[@]}"; do
+            [[ ! -f "$f" ]] && MISSING+=("$f")
+          done
+
+          if [[ ${#MISSING[@]} -gt 0 ]]; then
+            echo "❌ docs-system incompleto. Faltan:"
+            printf '  - %s\n' "${MISSING[@]}"
+            echo "docs_complete=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ docs-system completo"
+            echo "docs_complete=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check UNKNOWN fields in required docs
+        id: unknown_check
+        run: |
+          UNKNOWN_COUNT=$(grep -r "^UNKNOWN$\|: UNKNOWN$" docs-system/ \
+            --include="*.md" \
+            --exclude="*/00_INDEX.md" \
+            2>/dev/null | wc -l | tr -d ' ')
+
+          echo "Campos UNKNOWN encontrados: $UNKNOWN_COUNT"
+
+          # Umbral configurable — ajustar según madurez del proyecto
+          THRESHOLD=10
+
+          if [[ "$UNKNOWN_COUNT" -gt "$THRESHOLD" ]]; then
+            echo "❌ Demasiados campos UNKNOWN en docs-system ($UNKNOWN_COUNT > $THRESHOLD)"
+            echo "  Completar la documentación antes de hacer release."
+            echo "unknown_ok=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Campos UNKNOWN dentro del umbral ($UNKNOWN_COUNT <= $THRESHOLD)"
+            echo "unknown_ok=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check P0 gaps open
+        id: gaps_check
+        run: |
+          if [[ ! -f "docs-system/GAPS.md" ]]; then
+            echo "gaps_ok=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Buscar gaps P0 abiertos (no tachados, no en sección "Cerrados")
+          P0_OPEN=$(awk '
+            /^## (Cerrados|Closed|Resueltos)/ { closed=1 }
+            !closed && /P0/ && /GAP-/ { print }
+          ' docs-system/GAPS.md | wc -l | tr -d ' ')
+
+          if [[ "$P0_OPEN" -gt 0 ]]; then
+            echo "❌ Hay $P0_OPEN gap(s) P0 abiertos en GAPS.md"
+            echo "  Un gap P0 significa que hay funcionalidad crítica rota o faltante."
+            echo "  Resolver o documentar como decisión consciente antes de release."
+            echo ""
+            echo "  Gaps P0 encontrados:"
+            awk '
+              /^## (Cerrados|Closed|Resueltos)/ { closed=1 }
+              !closed && /P0/ && /GAP-/ { print "  " $0 }
+            ' docs-system/GAPS.md
+            echo "gaps_ok=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Sin gaps P0 abiertos"
+            echo "gaps_ok=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check HUMAN_ONLY unresolved
+        id: human_only_check
+        run: |
+          HUMAN_ONLY_COUNT=$(grep -c "HUMAN_ONLY" docs-system/GAPS.md \
+            docs-system/TECHNICAL_DEBT_ROADMAP.md 2>/dev/null || true)
+
+          if [[ "$HUMAN_ONLY_COUNT" -gt 0 ]]; then
+            echo "⚠️  Hay $HUMAN_ONLY_COUNT item(s) HUMAN_ONLY sin resolver"
+            echo "  Verificar manualmente que no afectan esta release antes de continuar."
+            grep -rn "HUMAN_ONLY" docs-system/GAPS.md docs-system/TECHNICAL_DEBT_ROADMAP.md 2>/dev/null || true
+            # HUMAN_ONLY no bloquea automáticamente — requiere revisión humana consciente
+            echo "human_only_count=$HUMAN_ONLY_COUNT" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Sin items HUMAN_ONLY pendientes"
+            echo "human_only_count=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check P0 flows have test files
+        id: p0_tests_check
+        run: |
+          if [[ ! -f "docs-system/USER_FLOW_MATRIX.md" ]]; then
+            echo "p0_tests_ok=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          FAILED=0
+          P0_FLOWS=$(grep -E "^\s*\|\s*UF-[0-9]+" docs-system/USER_FLOW_MATRIX.md \
+            | grep "P0" | grep -oE "UF-[0-9]+" || true)
+
+          if [[ -z "$P0_FLOWS" ]]; then
+            echo "✅ No se encontraron flujos P0 (o USER_FLOW_MATRIX no usa el formato estándar)"
+            echo "p0_tests_ok=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Flujos P0 encontrados:"
+          for flow_id in $P0_FLOWS; do
+            echo "  Verificando: $flow_id"
+            TEST_FILES=$(grep -rl "$flow_id" \
+              --include="*.spec.ts" --include="*.test.ts" \
+              --include="*.spec.js" --include="*.test.js" \
+              --include="*.spec.py" --include="*.test.py" \
+              . 2>/dev/null || true)
+
+            if [[ -z "$TEST_FILES" ]]; then
+              echo "  ❌ $flow_id — sin archivo de test"
+              FAILED=$((FAILED + 1))
+            else
+              echo "  ✅ $flow_id — $(echo $TEST_FILES | tr '\n' ' ')"
+            fi
+          done
+
+          if [[ "$FAILED" -gt 0 ]]; then
+            echo ""
+            echo "❌ $FAILED flujo(s) P0 sin cobertura de tests"
+            echo "p0_tests_ok=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Todos los flujos P0 tienen archivos de test"
+            echo "p0_tests_ok=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check no bypass patterns in test files
+        id: bypass_check
+        run: |
+          BYPASS_FOUND=false
+
+          # .skip y .only no documentados
+          UNDOCUMENTED=$(grep -rE "(\.skip\(|xdescribe\(|xit\(|xtest\(|\.only\()" \
+            --include="*.spec.ts" --include="*.test.ts" \
+            --include="*.spec.js" --include="*.test.js" \
+            . 2>/dev/null | grep -v "node_modules" || true)
+
+          if [[ -n "$UNDOCUMENTED" ]]; then
+            echo "❌ Bypasses encontrados en tests:"
+            echo "$UNDOCUMENTED"
+            BYPASS_FOUND=true
+          fi
+
+          if [[ "$BYPASS_FOUND" == "true" ]]; then
+            echo "bypass_ok=false" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Sin bypasses en tests"
+            echo "bypass_ok=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Release readiness summary
+        if: always()
+        run: |
+          echo ""
+          echo "════════════════════════════════════════"
+          echo "        RELEASE READINESS REPORT"
+          echo "════════════════════════════════════════"
+          echo ""
+
+          PASS=true
+
+          check() {
+            local label="$1"
+            local value="$2"
+            local required="$3"
+
+            if [[ "$value" == "true" ]]; then
+              echo "  ✅ $label"
+            elif [[ "$required" == "required" ]]; then
+              echo "  ❌ $label — BLOQUEANTE"
+              PASS=false
+            else
+              echo "  ⚠️  $label — requiere revisión manual"
+            fi
+          }
+
+          check "docs-system completo" "${{ steps.docs_check.outputs.docs_complete }}" "required"
+          check "Campos UNKNOWN dentro del umbral" "${{ steps.unknown_check.outputs.unknown_ok }}" "required"
+          check "Sin gaps P0 abiertos" "${{ steps.gaps_check.outputs.gaps_ok }}" "required"
+          check "Flujos P0 con tests" "${{ steps.p0_tests_check.outputs.p0_tests_ok }}" "required"
+          check "Sin bypasses en tests" "${{ steps.bypass_check.outputs.bypass_ok }}" "required"
+
+          HUMAN_ONLY="${{ steps.human_only_check.outputs.human_only_count }}"
+          if [[ "$HUMAN_ONLY" -gt 0 ]]; then
+            echo "  ⚠️  $HUMAN_ONLY item(s) HUMAN_ONLY — revisar manualmente antes de release"
+          else
+            echo "  ✅ Sin items HUMAN_ONLY pendientes"
+          fi
+
+          echo ""
+          echo "════════════════════════════════════════"
+
+          if [[ "$PASS" == "false" ]]; then
+            echo "  ❌ RELEASE BLOQUEADA — resolver issues arriba"
+            echo "════════════════════════════════════════"
+            exit 1
+          else
+            echo "  ✅ SISTEMA LISTO PARA RELEASE"
+            echo "════════════════════════════════════════"
+          fi

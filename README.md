@@ -536,11 +536,13 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 
 ## Niveles de madurez
 
-| Nivel | Nombre | Estado |
-|-------|--------|--------|
-| 1 | Repository Understanding | ✅ este framework |
-| 2 | Impact Analysis | ✅ incluido en el framework |
-| 3 | Documentation Governance | con CI (`ci/docs-validation-example.yml`) |
-| 4 | Evidence Based QA | a construir |
-| 5 | Release Readiness | a construir |
-| 6 | AI-Enforced Governance | a construir |
+| Nivel | Nombre | Cómo se implementa |
+|-------|--------|--------------------|
+| 1 | Repository Understanding | `docs-system/` + Fase 0 |
+| 2 | Impact Analysis | Fase 2 en la regla core — obligatoria antes de ejecutar |
+| 3 | Documentation Governance | `hooks/pre-push` + `ci/docs-validation-example.yml` |
+| 4 | Evidence Based QA | `templates/EVIDENCE_REPORT.template.md` + Fase 5 estructurada |
+| 5 | Release Readiness | `ci/release-readiness-example.yml` — gate en PRs a main |
+| 6 | AI-Enforced Governance | Sección "Verificación de precondiciones" en `rules/engineering-governance.md` |
+
+Todos los niveles están implementados. La adopción es incremental — podés instalar el framework y activar los niveles de CI a medida que el equipo los necesite.

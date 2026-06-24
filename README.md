@@ -208,6 +208,50 @@ y PRODUCT_ROADMAP.md, generá un plan de trabajo priorizado que incluya:
 
 ---
 
+### Momento 4 — Re-sincronización de docs (deuda de documentación)
+
+Cuando el código evolucionó en varias sesiones y los docs quedaron desactualizados. Pasa siempre — la pregunta no es si va a pasar, sino cuándo detectarlo y corregirlo.
+
+**Señales de que los docs están stale:**
+- Un agente genera código que contradice lo documentado en `/docs-system/`
+- `GAPS.md` tiene items que ya fueron resueltos pero no eliminados
+- Un runbook describe un proceso que ya no existe en el código
+- Alguien nuevo al repo encuentra información incorrecta
+
+**Prompt para re-sincronización:**
+
+```
+Leé /docs-system/ completo y compará con el estado actual del código.
+No modifiques código.
+
+Para cada documento, indicá:
+- Qué información está desactualizada respecto al código real
+- Qué falta documentar que ya existe en el código
+- Qué está documentado pero ya no existe en el código
+
+Luego actualizá solo los documentos que no reflejan el comportamiento real.
+```
+
+**El agente entrega primero un diagnóstico, después actualiza:**
+
+```
+## Diagnóstico de stale docs
+| Documento | Estado | Qué cambió |
+|-----------|--------|------------|
+| ARCHITECTURE.md | ⚠️ Desactualizado | Nuevo módulo X no documentado |
+| GAPS.md | ⚠️ Desactualizado | GAP-002 ya resuelto en PR #201 |
+| INTEGRATIONS.md | ✅ Al día | — |
+
+## Cambios aplicados
+[lista de updates realizados con justificación]
+```
+
+**Cuándo hacerlo:** Al inicio de un sprint, antes de una sesión de cambios importantes, o cuando el equipo siente que "los docs no reflejan lo que hay".
+
+**Automatizar con CI:** El `ci/docs-validation-example.yml` bloquea un PR si hay cambios de código sin cambios en `/docs-system/`. Esto convierte el Momento 4 de reactivo a preventivo. Ver [`ci/docs-validation-example.yml`](ci/docs-validation-example.yml).
+
+---
+
 ### Combinación con otros skills
 
 Este framework no reemplaza otros skills — los **potencia**. El framework provee contexto del sistema; los otros skills proveen capacidad especializada. Se usan en capas.

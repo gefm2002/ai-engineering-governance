@@ -1,17 +1,24 @@
 # docs-validation-example.yml
 #
-# Valida que si cambia código, también debe cambiar docs-system.
-# Agregar a .github/workflows/ en el repo objetivo.
+# Bloquea un PR si hay cambios de código sin cambios en /docs-system/.
+# Implementa el enforcement del Momento 4 del framework.
+#
+# Cómo usar:
+#   cp ci/docs-validation-example.yml .github/workflows/docs-validation.yml
+#
+# Cómo omitir (justificado):
+#   Agregar "[skip-docs]" al título del PR — solo para cambios que no
+#   afectan comportamiento (refactors internos, renombres, typos en tests).
 
 name: Docs Validation
 
 on:
   pull_request:
-    branches: [main, master]
+    branches: [main, master, develop]
 
 jobs:
   validate-docs:
-    name: Validate docs-system is updated
+    name: docs-system updated?
     runs-on: ubuntu-latest
 
     steps:
@@ -19,14 +26,27 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check docs-system updated alongside code changes
+      - name: Check if docs-system updated alongside code changes
         run: |
-          # Archivos de código modificados (excluye docs-system y archivos de config)
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          # Permitir omitir con [skip-docs] en el título del PR
+          if echo "$PR_TITLE" | grep -q "\[skip-docs\]"; then
+            echo "⚠️  [skip-docs] detectado — omitiendo validación de docs."
+            echo "Asegurate de que este PR no modifica comportamiento observable."
+            exit 0
+          fi
+
+          # Archivos de código modificados
           CODE_CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD \
             | grep -v '^docs-system/' \
             | grep -v '^\.github/' \
             | grep -v '^\.cursor/' \
+            | grep -v '^\.agent/' \
             | grep -v 'README.md' \
+            | grep -v 'CLAUDE.md' \
+            | grep -v '\.windsurfrules' \
+            | grep -v '\.clinerules' \
             | grep -E '\.(ts|tsx|js|jsx|py|go|rb|java|cs|php|swift|kt|rs)$' \
             | wc -l)
 
@@ -35,20 +55,30 @@ jobs:
             | grep '^docs-system/' \
             | wc -l)
 
-          echo "Code files changed: $CODE_CHANGED"
-          echo "Docs files changed: $DOCS_CHANGED"
+          echo "Archivos de código modificados: $CODE_CHANGED"
+          echo "Archivos de docs-system modificados: $DOCS_CHANGED"
 
           if [ "$CODE_CHANGED" -gt 0 ] && [ "$DOCS_CHANGED" -eq 0 ]; then
             echo ""
-            echo "❌ ERROR: Code changed without updating docs-system."
+            echo "❌ Este PR modifica código pero no actualiza /docs-system/"
             echo ""
-            echo "This PR modifies code but does not update /docs-system."
+            echo "Si el comportamiento cambia, al menos uno de estos archivos"
+            echo "debe actualizarse en el mismo PR:"
             echo ""
-            echo "Required: update at least one file in /docs-system/ that"
-            echo "reflects the behavior changed in this PR."
+            echo "  docs-system/PRODUCT_SURFACE.md      — capabilities, reglas de negocio"
+            echo "  docs-system/USER_FLOW_MATRIX.md     — flujos afectados"
+            echo "  docs-system/ARCHITECTURE.md         — cambios estructurales"
+            echo "  docs-system/INTEGRATIONS.md         — nuevas APIs o contratos"
+            echo "  docs-system/OPERATIONS.md           — cambios operativos"
+            echo "  docs-system/TECHNICAL_DEBT_ROADMAP.md — deuda introducida o resuelta"
+            echo "  docs-system/GAPS.md                 — gaps abiertos o cerrados"
+            echo "  docs-system/PLATFORM_STATE.md       — cambio de estado del sistema"
             echo ""
-            echo "See ENGINEERING_GOVERNANCE.md for the required process."
+            echo "Si este PR no modifica comportamiento observable (refactor interno,"
+            echo "renombre, fix de typo en tests), agregá [skip-docs] al título del PR."
+            echo ""
+            echo "Ver ENGINEERING_GOVERNANCE.md — Momento 4 para más contexto."
             exit 1
           fi
 
-          echo "✅ Docs validation passed."
+          echo "✅ Validación de docs-system pasada."

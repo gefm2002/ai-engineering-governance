@@ -52,6 +52,7 @@ Con el contenido de [`rules/engineering-governance.md`](rules/engineering-govern
 | **Cursor** | `.cursor/rules/engineering-governance.mdc` | [`adapters/cursor.mdc`](adapters/cursor.mdc) |
 | **GitHub Copilot** | `.github/copilot-instructions.md` | [`adapters/copilot.md`](adapters/copilot.md) |
 | **Claude Code** | `CLAUDE.md` (agregar sección) | [`adapters/claude.md`](adapters/claude.md) |
+| **OpenAI Codex** | `AGENTS.md` (agregar sección) | [`adapters/codex.md`](adapters/codex.md) |
 | **Windsurf** | `.windsurfrules` | [`adapters/windsurf.md`](adapters/windsurf.md) |
 | **Cline / Roo** | `.clinerules` | [`adapters/cline.md`](adapters/cline.md) |
 | **Aider** | `.aider.conf.yml` (agregar sección) | [`adapters/aider.md`](adapters/aider.md) |

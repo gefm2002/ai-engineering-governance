@@ -347,6 +347,7 @@ y seguí las instrucciones de instalación automática en este repositorio.
 | **Cursor** | `.cursor/rules/engineering-governance.mdc` | [`adapters/cursor.mdc`](adapters/cursor.mdc) |
 | **GitHub Copilot** | `.github/copilot-instructions.md` | [`adapters/copilot.md`](adapters/copilot.md) |
 | **Claude Code** | `CLAUDE.md` | [`adapters/claude.md`](adapters/claude.md) |
+| **OpenAI Codex** | `AGENTS.md` | [`adapters/codex.md`](adapters/codex.md) |
 | **Windsurf** | `.windsurfrules` | [`adapters/windsurf.md`](adapters/windsurf.md) |
 | **Cline / Roo** | `.clinerules` | [`adapters/cline.md`](adapters/cline.md) |
 | **Aider** | `.aider.conf.yml` | [`adapters/aider.md`](adapters/aider.md) |
@@ -426,6 +427,7 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │   ├── cursor.mdc              ← Cursor (.cursor/rules/)
 │   ├── copilot.md              ← GitHub Copilot (.github/copilot-instructions.md)
 │   ├── claude.md               ← Claude Code (CLAUDE.md)
+│   ├── codex.md                ← OpenAI Codex (AGENTS.md)
 │   ├── windsurf.md             ← Windsurf (.windsurfrules)
 │   ├── cline.md                ← Cline / Roo (.clinerules)
 │   └── aider.md                ← Aider (.aider.conf.yml)

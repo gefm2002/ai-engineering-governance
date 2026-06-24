@@ -176,6 +176,31 @@ install_aider() {
   get_file "adapters/aider.md" "${TARGET_DIR}/.agent/adapters/aider.md"
 }
 
+install_codex() {
+  log "Installing OpenAI Codex adapter..."
+  local dst="${TARGET_DIR}/AGENTS.md"
+
+  if [[ -f "$dst" ]]; then
+    warn "AGENTS.md already exists."
+    if [[ "$DRY_RUN" == "false" ]]; then
+      warn "Appending governance section to existing AGENTS.md..."
+      echo "" >> "$dst"
+      echo "---" >> "$dst"
+      echo "" >> "$dst"
+      if [[ "$USE_LOCAL" == "true" ]]; then
+        cat "${FRAMEWORK_DIR}/adapters/codex.md" >> "$dst"
+      else
+        curl -fsSL "${REPO_URL}/adapters/codex.md" >> "$dst"
+      fi
+      success "Appended to: $dst"
+    else
+      log "[dry-run] Would append governance section to existing AGENTS.md"
+    fi
+  else
+    get_file "adapters/codex.md" "$dst"
+  fi
+}
+
 # ─── Instalar docs-system ─────────────────────────────────────────────────────
 
 install_docs_system() {
@@ -275,17 +300,19 @@ case "$TOOL" in
   windsurf) install_windsurf ;;
   cline)    install_cline ;;
   aider)    install_aider ;;
+  codex)    install_codex ;;
   "")
     install_cursor
     install_copilot
     install_claude
+    install_codex
     install_windsurf
     install_cline
     install_aider
     ;;
   *)
     echo "Unknown tool: $TOOL" >&2
-    echo "Valid options: cursor, copilot, claude, windsurf, cline, aider" >&2
+    echo "Valid options: cursor, copilot, claude, codex, windsurf, cline, aider" >&2
     exit 1
     ;;
 esac

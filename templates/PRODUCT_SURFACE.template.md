@@ -1,18 +1,43 @@
 # Product Surface
 
-> Descripción del producto desde la perspectiva del negocio y del usuario.
+**Actualizado:** UNKNOWN  
+**Regla:** si una capability no está acá → **no existe comercialmente**.
 
 ---
 
-## Nombre del sistema
+## Qué es este sistema
 
-<!-- Nombre oficial del repositorio/sistema -->
-UNKNOWN
+| Dimensión | Descripción |
+|-----------|-------------|
+| Nombre | UNKNOWN |
+| Propósito | UNKNOWN |
+| Versión actual | UNKNOWN |
+| Estado | UNKNOWN |
 
-## Propósito
+---
 
-<!-- Qué problema resuelve. Una o dos oraciones. -->
-UNKNOWN
+## Capability Reality Matrix
+
+> Vista ejecutiva principal. Lee esto primero.
+
+| Capability | Estado real | Situación |
+|------------|-------------|-----------|
+| UNKNOWN | UNKNOWN | UNKNOWN |
+
+### Leyenda de estados
+
+| Estado | Significado |
+|--------|-------------|
+| ✅ READY | Operativo y entregable |
+| ⚠️ BETA | Funciona pero requiere homologación o soporte |
+| ⚠️ PARTIAL | Incompleto o UX incompleta |
+| ⚠️ READY WITH SUPPORT | Funciona pero requiere setup/manual |
+| ⚠️ BLOCKED EXTERNAL | Bloqueado por dependencia externa |
+| ❌ NOT IMPLEMENTED | No existe realmente |
+| ❌ HIDDEN | Oculto / deshabilitado |
+| 💤 UPCOMING | Roadmap futuro |
+
+---
 
 ## Actores principales
 
@@ -20,31 +45,20 @@ UNKNOWN
 |-------|-----|----------------------|
 | UNKNOWN | UNKNOWN | UNKNOWN |
 
-## Capacidades expuestas
-
-<!-- Qué puede hacer el sistema desde afuera -->
-
-- UNKNOWN
-
-## Capacidades NO expuestas
-
-<!-- Qué hace el sistema internamente que no es visible para el usuario -->
-
-- UNKNOWN
+---
 
 ## Reglas de negocio críticas
 
-<!-- Reglas que si se rompen generan un problema de negocio -->
-
 1. UNKNOWN
+
+---
 
 ## Restricciones conocidas
 
-<!-- Limitaciones técnicas, contractuales u operativas -->
-
 - UNKNOWN
 
-## Última actualización
+---
 
-<!-- Fecha de última revisión de este documento -->
-UNKNOWN
+## Anti-goals — NO construir
+
+- UNKNOWN

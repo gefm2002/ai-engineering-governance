@@ -192,25 +192,36 @@ install_docs_system() {
 
   log "Creating /docs-system with blank templates..."
 
-  local files=(
-    "00_INDEX.md"
+  # Documentos requeridos (todos los proyectos)
+  local required_files=(
     "PRODUCT_SURFACE.md"
-    "FLOW_MATRIX.md"
+    "USER_FLOW_MATRIX.md"
     "ARCHITECTURE.md"
     "INTEGRATIONS.md"
     "OPERATIONS.md"
-    "TECHNICAL_DEBT.md"
-    "RELEASE_STATE.md"
+    "TECHNICAL_DEBT_ROADMAP.md"
+    "GAPS.md"
   )
 
-  for file in "${files[@]}"; do
+  # 00_INDEX se genera desde examples
+  get_file "examples/docs-system/00_INDEX.md" "${docs_dir}/00_INDEX.md"
+
+  for file in "${required_files[@]}"; do
     local template_key="${file%.md}"
-    # 00_INDEX no tiene template propio, usar el de examples
-    if [[ "$file" == "00_INDEX.md" ]]; then
-      get_file "examples/docs-system/00_INDEX.md" "${docs_dir}/00_INDEX.md"
-    else
-      get_file "templates/${template_key}.template.md" "${docs_dir}/${file}"
-    fi
+    get_file "templates/${template_key}.template.md" "${docs_dir}/${file}"
+  done
+
+  # Documentos opcionales (se crean vacíos para que el agente los complete si aplica)
+  local optional_files=(
+    "PLATFORM_STATE.md"
+    "PRODUCT_ROADMAP.md"
+    "PERFORMANCE_REPORT.md"
+  )
+
+  log "Creating optional docs (fill if relevant to your project)..."
+  for file in "${optional_files[@]}"; do
+    local template_key="${file%.md}"
+    get_file "templates/${template_key}.template.md" "${docs_dir}/${file}"
   done
 }
 

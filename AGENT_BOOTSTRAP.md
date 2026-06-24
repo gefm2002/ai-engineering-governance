@@ -60,22 +60,33 @@ Si no sabés qué herramienta es la activa, instalá todos los adapters.
 
 ### Paso 4 — Crear estructura docs-system vacía
 
-Si no existe `/docs-system` en el repositorio objetivo, crearlo:
+Si no existe `/docs-system` en el repositorio objetivo, crearlo.
 
+**Mínimo requerido** (todos los proyectos):
 ```
 docs-system/
 ├── 00_INDEX.md
-├── PRODUCT_SURFACE.md
-├── FLOW_MATRIX.md
-├── ARCHITECTURE.md
-├── INTEGRATIONS.md
-├── OPERATIONS.md
-├── TECHNICAL_DEBT.md
-└── RELEASE_STATE.md
+├── PRODUCT_SURFACE.md          ← capabilities, actores, reglas de negocio
+├── USER_FLOW_MATRIX.md         ← flujos UX con criticidad P0/P1/P2/P3
+├── ARCHITECTURE.md             ← stack, estructura, decisiones técnicas
+├── INTEGRATIONS.md             ← APIs, env vars, contratos
+├── OPERATIONS.md               ← build, deploy, runbooks
+├── TECHNICAL_DEBT_ROADMAP.md   ← deuda activa / cerrada / HUMAN_ONLY
+└── GAPS.md                     ← solo items abiertos
+```
+
+**Documentos adicionales** (según necesidad del proyecto):
+```
+docs-system/
+├── PLATFORM_STATE.md           ← scorecard por área, bloqueadores activos
+├── PRODUCT_ROADMAP.md          ← fases con entregables y criterio de done
+└── PERFORMANCE_REPORT.md       ← mediciones before/after con metodología
 ```
 
 Usar los templates de [`templates/`](templates/) de este repo.  
 Completar con `UNKNOWN` donde no se pueda inferir información.
+
+> **Nota de naming:** `TECHNICAL_DEBT_ROADMAP.md` reemplaza al anterior `TECHNICAL_DEBT.md` — incluye secciones de deuda activa, cerrada, paridad pendiente y HUMAN_ONLY.
 
 ### Paso 5 — Confirmar instalación
 

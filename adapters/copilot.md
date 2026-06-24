@@ -4,7 +4,7 @@
 
 Before suggesting or generating any code change in this repository:
 
-1. Check if `/docs-system/` exists and read all available files in it.
+1. Check if `/docs-system/` exists and read all available files in it: `00_INDEX.md`, `PRODUCT_SURFACE.md`, `USER_FLOW_MATRIX.md`, `ARCHITECTURE.md`, `INTEGRATIONS.md`, `OPERATIONS.md`, `TECHNICAL_DEBT_ROADMAP.md`, `GAPS.md`, and optional `PLATFORM_STATE.md`, `PRODUCT_ROADMAP.md`, `PERFORMANCE_REPORT.md`.
 2. Build a summary of what the system does and what business it supports.
 3. Identify which modules, APIs, and dependencies are affected by the requested change.
 4. Only then suggest the implementation.

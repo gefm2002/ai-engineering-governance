@@ -27,12 +27,19 @@ Buscar y leer, en orden:
 ```
 /docs-system/00_INDEX.md
 /docs-system/PRODUCT_SURFACE.md
-/docs-system/FLOW_MATRIX.md
+/docs-system/USER_FLOW_MATRIX.md
 /docs-system/ARCHITECTURE.md
 /docs-system/INTEGRATIONS.md
 /docs-system/OPERATIONS.md
-/docs-system/TECHNICAL_DEBT.md
-/docs-system/RELEASE_STATE.md
+/docs-system/TECHNICAL_DEBT_ROADMAP.md
+/docs-system/GAPS.md
+```
+
+Documentos opcionales si existen:
+```
+/docs-system/PLATFORM_STATE.md
+/docs-system/PRODUCT_ROADMAP.md
+/docs-system/PERFORMANCE_REPORT.md
 ```
 
 Si algún archivo no existe: continuar con los disponibles y registrar qué falta.  
@@ -93,12 +100,14 @@ Actualizar los archivos de `/docs-system/` que correspondan:
 
 | Tipo de cambio | Documentos a actualizar |
 |----------------|------------------------|
-| Nueva funcionalidad | PRODUCT_SURFACE, FLOW_MATRIX |
+| Nueva funcionalidad | PRODUCT_SURFACE, USER_FLOW_MATRIX |
 | Cambio de arquitectura | ARCHITECTURE |
 | Nueva integración / cambio de contrato | INTEGRATIONS |
 | Cambio operativo | OPERATIONS |
-| Introducción de deuda técnica | TECHNICAL_DEBT |
-| Deploy / release | RELEASE_STATE |
+| Introducción de deuda técnica | TECHNICAL_DEBT_ROADMAP |
+| Gap resuelto | GAPS (eliminar el item cerrado) |
+| Cambio de estado del producto | PLATFORM_STATE |
+| Nuevo hito de roadmap | PRODUCT_ROADMAP |
 
 ---
 
@@ -135,6 +144,7 @@ Siempre entregar al finalizar:
 - No marcar una tarea como completada sin evidencia de validación.
 - No modificar código si no se completó la Fase 0.
 - No omitir el Impact Analysis si el cambio afecta comportamiento existente.
+- No resolver items de `GAPS.md` marcados como `HUMAN_ONLY` sin autorización explícita.
 
 ---
 

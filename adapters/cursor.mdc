@@ -14,12 +14,15 @@ Read these files if they exist:
 
 - `/docs-system/00_INDEX.md`
 - `/docs-system/PRODUCT_SURFACE.md`
-- `/docs-system/FLOW_MATRIX.md`
+- `/docs-system/USER_FLOW_MATRIX.md`
 - `/docs-system/ARCHITECTURE.md`
 - `/docs-system/INTEGRATIONS.md`
 - `/docs-system/OPERATIONS.md`
-- `/docs-system/TECHNICAL_DEBT.md`
-- `/docs-system/RELEASE_STATE.md`
+- `/docs-system/TECHNICAL_DEBT_ROADMAP.md`
+- `/docs-system/GAPS.md`
+- `/docs-system/PLATFORM_STATE.md` (si existe)
+- `/docs-system/PRODUCT_ROADMAP.md` (si existe)
+- `/docs-system/PERFORMANCE_REPORT.md` (si existe)
 
 If `/docs-system/` does not exist, notify the user and offer to create it before proceeding.
 

@@ -11,7 +11,11 @@ Before making any change to this repository:
 
 **Phase 0 — Read documentation**
 
-Read all files in `/docs-system/` before touching any code.
+Read all files in `/docs-system/` before touching any code:
+- `00_INDEX.md`, `PRODUCT_SURFACE.md`, `USER_FLOW_MATRIX.md`, `ARCHITECTURE.md`
+- `INTEGRATIONS.md`, `OPERATIONS.md`, `TECHNICAL_DEBT_ROADMAP.md`, `GAPS.md`
+- If present: `PLATFORM_STATE.md`, `PRODUCT_ROADMAP.md`, `PERFORMANCE_REPORT.md`
+
 If the directory does not exist, stop and offer to create it.
 
 **Phase 1 — Understand**

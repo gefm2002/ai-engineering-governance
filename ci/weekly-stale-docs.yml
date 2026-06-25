@@ -1,0 +1,169 @@
+name: Weekly Stale Docs Check
+
+# Corre todos los lunes a las 9am UTC
+# También se puede correr manualmente desde GitHub Actions
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  stale-docs-check:
+    name: Check for stale documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # necesario para git log con fechas
+
+      - name: Check docs-system staleness
+        id: stale_check
+        run: |
+          STALE=false
+          REPORT=""
+          DOCS_DIR="docs-system"
+
+          # ─── Verificar si docs-system existe ──────────────────────────────
+
+          if [[ ! -d "$DOCS_DIR" ]]; then
+            echo "stale=true" >> $GITHUB_OUTPUT
+            echo "report=docs-system no existe en este repo" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # ─── Días desde el último cambio a cada área ──────────────────────
+
+          CODE_DIRS="src lib app"
+          LAST_CODE=""
+          for d in $CODE_DIRS; do
+            if [[ -d "$d" ]]; then
+              LAST_CODE=$(git log -1 --format="%ct" -- "$d/" 2>/dev/null || echo "")
+              break
+            fi
+          done
+
+          LAST_DOCS=$(git log -1 --format="%ct" -- "$DOCS_DIR/" 2>/dev/null || echo "")
+
+          if [[ -n "$LAST_CODE" && -n "$LAST_DOCS" ]]; then
+            NOW=$(date +%s)
+            CODE_DAYS=$(( (NOW - LAST_CODE) / 86400 ))
+            DOCS_DAYS=$(( (NOW - LAST_DOCS) / 86400 ))
+            DIFF_DAYS=$(( LAST_CODE > LAST_DOCS ? (LAST_CODE - LAST_DOCS) / 86400 : 0 ))
+
+            echo "Último cambio al código: hace $CODE_DAYS días"
+            echo "Último cambio a docs:    hace $DOCS_DAYS días"
+            echo "Diferencia:              $DIFF_DAYS días"
+
+            if [[ "$DIFF_DAYS" -gt 30 ]]; then
+              STALE=true
+              REPORT+="⚠️ docs-system con ${DIFF_DAYS} días de atraso respecto al código\n"
+            fi
+          fi
+
+          # ─── Verificar campos UNKNOWN ──────────────────────────────────────
+
+          REQUIRED=(PRODUCT_SURFACE.md USER_FLOW_MATRIX.md ARCHITECTURE.md INTEGRATIONS.md OPERATIONS.md)
+          for doc in "${REQUIRED[@]}"; do
+            if [[ -f "$DOCS_DIR/$doc" ]]; then
+              COUNT=$(grep -c "^UNKNOWN$\|: UNKNOWN$" "$DOCS_DIR/$doc" 2>/dev/null || echo 0)
+              if [[ "$COUNT" -gt 10 ]]; then
+                STALE=true
+                REPORT+="⚠️ $doc tiene $COUNT campos UNKNOWN sin completar\n"
+              fi
+            else
+              STALE=true
+              REPORT+="❌ $doc no existe\n"
+            fi
+          done
+
+          # ─── Verificar P0 flows sin tests ─────────────────────────────────
+
+          if [[ -f "$DOCS_DIR/USER_FLOW_MATRIX.md" ]]; then
+            P0_FLOWS=$(grep -E "^\s*\|\s*UF-[0-9]+" "$DOCS_DIR/USER_FLOW_MATRIX.md" \
+              | grep "P0" | grep -oE "UF-[0-9]+" || true)
+
+            for flow_id in $P0_FLOWS; do
+              TEST_FILE=$(find . -type f \( -name "*.spec.ts" -o -name "*.test.ts" \
+                -o -name "*.spec.js" -o -name "*.test.js" \) \
+                -not -path "*/node_modules/*" \
+                | xargs grep -l "$flow_id" 2>/dev/null || true)
+
+              if [[ -z "$TEST_FILE" ]]; then
+                STALE=true
+                REPORT+="❌ Flujo P0 $flow_id sin archivo de test\n"
+              fi
+            done
+          fi
+
+          # ─── Output ───────────────────────────────────────────────────────
+
+          echo "stale=$STALE" >> $GITHUB_OUTPUT
+
+          # Escapar el reporte para multiline output
+          REPORT_ESCAPED="${REPORT//'%'/'%25'}"
+          REPORT_ESCAPED="${REPORT_ESCAPED//$'\n'/'%0A'}"
+          echo "report=$REPORT_ESCAPED" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub issue if stale
+        if: steps.stale_check.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPORT="${{ steps.stale_check.outputs.report }}"
+          REPO_NAME="${{ github.repository }}"
+          DATE=$(date '+%Y-%m-%d')
+
+          # Verificar si ya existe un issue abierto de esta semana
+          EXISTING=$(gh issue list \
+            --label "stale-docs,governance-framework" \
+            --state open \
+            --json number,title \
+            --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [[ -n "$EXISTING" ]]; then
+            echo "Ya existe issue #$EXISTING — actualizando comentario"
+            gh issue comment "$EXISTING" \
+              --body "**Re-check automático $DATE**
+
+          $REPORT
+
+          _Generado por Weekly Stale Docs Check_"
+          else
+            gh issue create \
+              --title "docs: stale documentation detected ($DATE)" \
+              --body "## Documentación desactualizada detectada
+
+          El chequeo automático semanal encontró divergencia entre el código y \`docs-system/\`.
+
+          $REPORT
+
+          ## Qué hacer
+
+          Pedirle al agente:
+          \`\`\`
+          Leé /docs-system/ completo y compará con el estado actual del código.
+          No modifiques código.
+          Identificá qué está desactualizado y actualizá solo esos documentos.
+          \`\`\`
+
+          _Generado automáticamente por Engineering Governance Framework_" \
+              --label "documentation,governance-framework,stale-docs" \
+              2>/dev/null || echo "No se pudo crear el issue (verificar permisos)"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          if [[ "${{ steps.stale_check.outputs.stale }}" == "true" ]]; then
+            echo "## ⚠️ Docs desactualizados" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.stale_check.outputs.report }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Issue creado automáticamente." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ Docs sincronizados" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "docs-system está al día con el código." >> $GITHUB_STEP_SUMMARY
+          fi

@@ -2,12 +2,13 @@
 # pre-push hook — Engineering Governance Framework
 #
 # Bloquea el push si:
-#   1. Hay código cambiado sin docs-system actualizado
-#   2. Hay bypasses en los tests (.skip, .only, tests vacíos, continue-on-error)
-#   3. Los tests fallan
-#   4. La cobertura de flujos P0 no alcanza el umbral mínimo
+#   1. El branch no tiene ticket Jira en el nombre (si JIRA_PROJECT_KEY está configurado)
+#   2. Hay código cambiado sin docs-system actualizado
+#   3. Hay bypasses en los tests (.skip, .only, tests vacíos, continue-on-error)
+#   4. Los tests fallan
+#   5. La cobertura de flujos P0 no alcanza el umbral mínimo
 #
-# Configurar en .governance/hook-config.sh (ver sección CONFIG más abajo)
+# Configurar en .governance/hook-config.sh
 # Escape: git push -o skip-governance-check
 
 set -euo pipefail
@@ -32,6 +33,7 @@ done < /dev/stdin 2>/dev/null || true
 # ─── CONFIG — sobreescribir en .governance/hook-config.sh ────────────────────
 # Crear ese archivo en el repo para personalizar sin modificar el hook.
 
+JIRA_PROJECT_KEY=""   # ej: "STOCK" — si se configura, el branch debe incluir el ticket
 TEST_CMD=""           # ej: "npm test" | "pytest" | "go test ./..."
 COVERAGE_CMD=""       # ej: "npm run test:ci" | "pytest --cov"
 COVERAGE_FILE=""      # ej: "coverage/coverage-summary.json" | ".coverage"
@@ -88,6 +90,32 @@ fi
 echo ""
 log "Pre-push quality gate — analizando cambios..."
 echo ""
+
+# ─── CHECK 0: Jira ticket en el nombre del branch ────────────────────────────
+
+if [[ -n "$JIRA_PROJECT_KEY" ]]; then
+  CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "")
+  EXEMPT_BRANCHES="^(main|master|develop|release|hotfix|chore/governance)"
+
+  if echo "$CURRENT_BRANCH" | grep -qE "$EXEMPT_BRANCHES"; then
+    success "CHECK 0 OK — rama exenta de validación de ticket ($CURRENT_BRANCH)"
+  elif echo "$CURRENT_BRANCH" | grep -qiE "${JIRA_PROJECT_KEY}-[0-9]+"; then
+    TICKET=$(echo "$CURRENT_BRANCH" | grep -oiE "${JIRA_PROJECT_KEY}-[0-9]+" | head -1 | tr '[:lower:]' '[:upper:]')
+    success "CHECK 0 OK — ticket Jira detectado: $TICKET"
+  else
+    fail "CHECK 0 FALLÓ — el nombre del branch no incluye un ticket Jira"
+    echo ""
+    echo "  Branch actual: $CURRENT_BRANCH"
+    echo "  Formato requerido: feature/${JIRA_PROJECT_KEY}-123-descripcion"
+    echo "                     bugfix/${JIRA_PROJECT_KEY}-456-descripcion"
+    echo ""
+    echo "  Renombrar el branch:"
+    echo -e "  ${YELLOW}git branch -m ${JIRA_PROJECT_KEY}-XXX-descripcion${NC}"
+    echo ""
+    echo -e "  Para saltear: ${YELLOW}git push -o skip-governance-check${NC}"
+    FAILED=true
+  fi
+fi
 
 # ─── CHECK 1: docs-system actualizado ────────────────────────────────────────
 

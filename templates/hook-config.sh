@@ -5,6 +5,12 @@
 # Este archivo sobreescribe la auto-detección del hook.
 # Commitear este archivo junto con el código del repo.
 
+# ─── Jira ─────────────────────────────────────────────────────────────────────
+
+# Si se configura, el branch debe incluir el ticket antes de cada push
+# Dejar vacío para desactivar esta validación
+JIRA_PROJECT_KEY="PROJ"    # ej: STOCK, DSS, MKP
+
 # ─── Comandos de test ─────────────────────────────────────────────────────────
 
 # Comando para correr el test suite completo

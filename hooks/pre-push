@@ -1,58 +1,81 @@
 #!/usr/bin/env bash
 # pre-push hook — Engineering Governance Framework
 #
-# Bloquea el push si hay archivos de código modificados en el último commit
-# sin que ningún archivo de docs-system haya sido actualizado también.
+# Bloquea el push si:
+#   1. Hay código cambiado sin docs-system actualizado
+#   2. Hay bypasses en los tests (.skip, .only, tests vacíos, continue-on-error)
+#   3. Los tests fallan
+#   4. La cobertura de flujos P0 no alcanza el umbral mínimo
 #
-# Instalar:
-#   cp .governance/hooks/pre-push .git/hooks/pre-push
-#   chmod +x .git/hooks/pre-push
-#
-# O usar install.sh --hooks
+# Configurar en .governance/hook-config.sh (ver sección CONFIG más abajo)
+# Escape: git push -o skip-governance-check
 
 set -euo pipefail
 
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
+# ─── Escape hatch ─────────────────────────────────────────────────────────────
+
+for arg in "$@"; do
+  [[ "$arg" == *"skip-governance-check"* ]] && exit 0
+done
+
+# También verificar la variable de entorno que git pasa con -o
+while IFS= read -r line; do
+  [[ "$line" == *"skip-governance-check"* ]] && exit 0
+done < /dev/stdin 2>/dev/null || true
+
+# ─── CONFIG — sobreescribir en .governance/hook-config.sh ────────────────────
+# Crear ese archivo en el repo para personalizar sin modificar el hook.
+
+TEST_CMD=""           # ej: "npm test" | "pytest" | "go test ./..."
+COVERAGE_CMD=""       # ej: "npm run test:ci" | "pytest --cov"
+COVERAGE_FILE=""      # ej: "coverage/coverage-summary.json" | ".coverage"
+COVERAGE_THRESHOLD=80 # % mínimo para flujos P0
 DOCS_DIR="docs-system"
 
-# Archivos que no cuentan como "código" (no activan el chequeo)
-IGNORE_PATTERNS=(
-  "^\.git/"
-  "^\.github/"
-  "^\.cursor/"
-  "^\.agent/"
-  "^docs-system/"
-  "^\.clinerules"
-  "^\.windsurfrules"
-  "^CLAUDE\.md"
-  "^AGENTS\.md"
-  "^README\.md"
-  "^\.env"
-  "node_modules/"
-  "\.lock$"
-  "\.json$"
-)
+# Cargar config del repo si existe
+if [[ -f ".governance/hook-config.sh" ]]; then
+  # shellcheck disable=SC1091
+  source ".governance/hook-config.sh"
+fi
 
-# Archivos que se consideran "código" (activan el chequeo)
-CODE_PATTERNS=(
-  "\.ts$"
-  "\.js$"
-  "\.py$"
-  "\.go$"
-  "\.java$"
-  "\.rb$"
-  "\.php$"
-  "\.rs$"
-  "\.cs$"
-  "\.yml$"
-  "\.yaml$"
-  "\.tf$"
-  "\.sql$"
-)
+# Auto-detectar stack si no está configurado
+if [[ -z "$TEST_CMD" ]]; then
+  if [[ -f "package.json" ]]; then
+    if grep -q '"test:ci"' package.json 2>/dev/null; then
+      TEST_CMD="npm run test:ci"
+      COVERAGE_CMD="npm run test:ci -- --coverage"
+      COVERAGE_FILE="coverage/coverage-summary.json"
+    else
+      TEST_CMD="npm test"
+      COVERAGE_CMD="npm test -- --coverage"
+      COVERAGE_FILE="coverage/coverage-summary.json"
+    fi
+  elif [[ -f "pytest.ini" ]] || [[ -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml 2>/dev/null; then
+    TEST_CMD="pytest"
+    COVERAGE_CMD="pytest --cov --cov-report=json"
+    COVERAGE_FILE="coverage.json"
+  elif [[ -f "go.mod" ]]; then
+    TEST_CMD="go test ./..."
+    COVERAGE_CMD="go test -coverprofile=coverage.out ./..."
+    COVERAGE_FILE="coverage.out"
+  fi
+fi
+
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+log()     { echo -e "${BLUE}[governance]${NC} $*"; }
+success() { echo -e "${GREEN}[governance]${NC} $*"; }
+warn()    { echo -e "${YELLOW}[governance]${NC} $*"; }
+fail()    { echo -e "${RED}[governance]${NC} $*"; }
+
+FAILED=false
+WARNINGS=()
 
 # ─── Obtener archivos del último commit ──────────────────────────────────────
 
@@ -62,60 +85,41 @@ if [[ -z "$CHANGED_FILES" ]]; then
   exit 0
 fi
 
-# ─── Clasificar archivos ─────────────────────────────────────────────────────
+echo ""
+log "Pre-push quality gate — analizando cambios..."
+echo ""
+
+# ─── CHECK 1: docs-system actualizado ────────────────────────────────────────
+
+IGNORE_PATTERNS=(
+  "^\.git/" "^\.github/" "^\.cursor/" "^\.agent/" "^docs-system/"
+  "^\.clinerules" "^\.windsurfrules" "^CLAUDE\.md" "^AGENTS\.md"
+  "^README\.md" "^\.env" "node_modules/" "\.lock$" "\.json$"
+)
+
+CODE_PATTERNS=("\.ts$" "\.js$" "\.py$" "\.go$" "\.java$" "\.rb$" "\.php$" "\.rs$" "\.cs$" "\.yml$" "\.yaml$" "\.tf$" "\.sql$")
 
 has_code_changes=false
 has_docs_changes=false
 
 while IFS= read -r file; do
-  # ¿Es un archivo de docs-system?
   if [[ "$file" == ${DOCS_DIR}/* ]]; then
-    has_docs_changes=true
-    continue
+    has_docs_changes=true; continue
   fi
-
-  # ¿Está en la lista de ignorados?
   ignored=false
-  for pattern in "${IGNORE_PATTERNS[@]}"; do
-    if echo "$file" | grep -qE "$pattern"; then
-      ignored=true
-      break
-    fi
+  for p in "${IGNORE_PATTERNS[@]}"; do
+    echo "$file" | grep -qE "$p" && ignored=true && break
   done
   [[ "$ignored" == "true" ]] && continue
-
-  # ¿Es código?
-  for pattern in "${CODE_PATTERNS[@]}"; do
-    if echo "$file" | grep -qE "$pattern"; then
-      has_code_changes=true
-      break
-    fi
+  for p in "${CODE_PATTERNS[@]}"; do
+    echo "$file" | grep -qE "$p" && has_code_changes=true && break
   done
 done <<< "$CHANGED_FILES"
 
-# ─── Evaluar ─────────────────────────────────────────────────────────────────
-
 if [[ "$has_code_changes" == "true" && "$has_docs_changes" == "false" ]]; then
+  fail "CHECK 1 FALLÓ — docs-system no actualizado"
   echo ""
-  echo -e "${RED}[governance] Push bloqueado — docs-system no actualizado${NC}"
-  echo ""
-  echo "  Se detectaron cambios de código sin actualización en /docs-system."
-  echo ""
-  echo "  Archivos de código modificados:"
-  while IFS= read -r file; do
-    ignored=false
-    for pattern in "${IGNORE_PATTERNS[@]}"; do
-      if echo "$file" | grep -qE "$pattern"; then ignored=true; break; fi
-    done
-    [[ "$ignored" == "true" ]] && continue
-    for pattern in "${CODE_PATTERNS[@]}"; do
-      if echo "$file" | grep -qE "$pattern"; then
-        echo "    - $file"
-        break
-      fi
-    done
-  done <<< "$CHANGED_FILES"
-  echo ""
+  echo "  Código cambiado sin actualizar /docs-system/."
   echo "  Qué actualizar según el tipo de cambio:"
   echo "    Nueva funcionalidad    → PRODUCT_SURFACE.md + USER_FLOW_MATRIX.md"
   echo "    Cambio de integración  → INTEGRATIONS.md"
@@ -123,15 +127,218 @@ if [[ "$has_code_changes" == "true" && "$has_docs_changes" == "false" ]]; then
   echo "    Bug fix / deuda        → TECHNICAL_DEBT_ROADMAP.md"
   echo "    Gap resuelto           → GAPS.md"
   echo ""
-  echo "  Si el cambio realmente no requiere actualizar docs (ej: refactor interno):"
+  echo -e "  Para saltear: ${YELLOW}git push -o skip-governance-check${NC}"
   echo ""
-  echo -e "  ${YELLOW}git push -o skip-governance-check${NC}"
-  echo ""
-  exit 1
+  FAILED=true
+else
+  success "CHECK 1 OK — docs-system actualizado"
 fi
 
-if [[ "$has_code_changes" == "true" && "$has_docs_changes" == "true" ]]; then
-  echo -e "${GREEN}[governance] docs-system actualizado — push permitido${NC}"
+# ─── CHECK 2: bypass audit ────────────────────────────────────────────────────
+
+log "CHECK 2 — Buscando bypass patterns en tests..."
+
+TEST_FILES=$(find . -type f \( \
+  -name "*.spec.ts" -o -name "*.test.ts" \
+  -o -name "*.spec.js" -o -name "*.test.js" \
+  -o -name "*.spec.py" -o -name "*.test.py" \
+  -o -name "*_test.go" \
+\) -not -path "*/node_modules/*" -not -path "*/.git/*" 2>/dev/null || true)
+
+bypass_found=false
+
+if [[ -n "$TEST_FILES" ]]; then
+  # .skip y xdescribe
+  SKIPS=$(echo "$TEST_FILES" | xargs grep -lE "(\.skip\(|xdescribe\(|xit\(|xtest\()" 2>/dev/null || true)
+  if [[ -n "$SKIPS" ]]; then
+    fail "  Tests con .skip detectados:"
+    echo "$SKIPS" | sed 's/^/    /'
+    bypass_found=true
+  fi
+
+  # .only
+  ONLYS=$(echo "$TEST_FILES" | xargs grep -lE "\.only\(" 2>/dev/null || true)
+  if [[ -n "$ONLYS" ]]; then
+    fail "  Tests con .only detectados (solo se corre un subset):"
+    echo "$ONLYS" | sed 's/^/    /'
+    bypass_found=true
+  fi
+
+  # Tests vacíos: it('algo', () => {}) o it('algo', () => { })
+  EMPTY=$(echo "$TEST_FILES" | xargs grep -lE "(it|test)\(['\"][^'\"]+['\"],\s*\(\)\s*=>\s*\{\s*\}\)" 2>/dev/null || true)
+  if [[ -n "$EMPTY" ]]; then
+    fail "  Tests vacíos detectados (sin assertions):"
+    echo "$EMPTY" | sed 's/^/    /'
+    bypass_found=true
+  fi
+
+  # Fake assertions
+  FAKE=$(echo "$TEST_FILES" | xargs grep -lE "expect\(true\)\.toBe\(true\)|assert True$|assert 1 == 1" 2>/dev/null || true)
+  if [[ -n "$FAKE" ]]; then
+    fail "  Fake assertions detectadas:"
+    echo "$FAKE" | sed 's/^/    /'
+    bypass_found=true
+  fi
+fi
+
+# continue-on-error en workflows
+CI_BYPASS=$(grep -rl "continue-on-error: true" .github/workflows/ 2>/dev/null || true)
+if [[ -n "$CI_BYPASS" ]]; then
+  warn "  continue-on-error en CI workflows (los tests que fallan llegan a producción):"
+  echo "$CI_BYPASS" | sed 's/^/    /'
+  WARNINGS+=("continue-on-error detectado en CI — tests que fallan no bloquean el pipeline")
+fi
+
+# --passWithNoTests
+PASSWITH=$(grep -rl "passWithNoTests\|--forceExit" . \
+  --include="package.json" --include="*.sh" --include="*.yml" \
+  2>/dev/null | grep -v node_modules || true)
+if [[ -n "$PASSWITH" ]]; then
+  warn "  --passWithNoTests o --forceExit detectado:"
+  echo "$PASSWITH" | sed 's/^/    /'
+  WARNINGS+=("--passWithNoTests permite pushear sin tests")
+fi
+
+if [[ "$bypass_found" == "true" ]]; then
+  fail "CHECK 2 FALLÓ — bypasses en tests"
+  FAILED=true
+else
+  success "CHECK 2 OK — sin bypasses"
+fi
+
+# ─── CHECK 3: correr tests completos ─────────────────────────────────────────
+
+if [[ -z "$TEST_CMD" ]]; then
+  warn "CHECK 3 SALTEADO — no se detectó comando de tests"
+  warn "  Configurar TEST_CMD en .governance/hook-config.sh"
+  WARNINGS+=("tests no corrieron — TEST_CMD no configurado")
+else
+  log "CHECK 3 — Corriendo tests: $TEST_CMD"
+  echo ""
+
+  if eval "$TEST_CMD"; then
+    echo ""
+    success "CHECK 3 OK — tests pasan"
+  else
+    echo ""
+    fail "CHECK 3 FALLÓ — tests fallaron"
+    fail "  Corregir los tests antes de pushear."
+    echo ""
+    echo -e "  Para saltear (no recomendado): ${YELLOW}git push -o skip-governance-check${NC}"
+    FAILED=true
+  fi
+fi
+
+# ─── CHECK 4: coverage de flujos P0 ──────────────────────────────────────────
+
+if [[ -z "$COVERAGE_CMD" ]] || [[ -z "$COVERAGE_FILE" ]]; then
+  warn "CHECK 4 SALTEADO — COVERAGE_CMD o COVERAGE_FILE no configurado"
+  warn "  Configurar en .governance/hook-config.sh"
+  WARNINGS+=("coverage no verificado — configurar COVERAGE_CMD y COVERAGE_FILE")
+elif [[ ! -f "${DOCS_DIR}/USER_FLOW_MATRIX.md" ]]; then
+  warn "CHECK 4 SALTEADO — USER_FLOW_MATRIX.md no existe"
+  WARNINGS+=("cobertura P0 no verificada — USER_FLOW_MATRIX.md no existe")
+else
+  log "CHECK 4 — Verificando cobertura de flujos P0..."
+
+  # Obtener flujos P0 del USER_FLOW_MATRIX
+  P0_FLOWS=$(grep -E "^\s*\|\s*UF-[0-9]+" "${DOCS_DIR}/USER_FLOW_MATRIX.md" \
+    | grep "P0" | grep -oE "UF-[0-9]+" || true)
+
+  if [[ -z "$P0_FLOWS" ]]; then
+    warn "CHECK 4 SALTEADO — sin flujos P0 en USER_FLOW_MATRIX.md"
+  else
+    # Correr coverage si no existe el reporte aún
+    if [[ ! -f "$COVERAGE_FILE" ]]; then
+      log "  Generando reporte de coverage..."
+      eval "$COVERAGE_CMD" > /dev/null 2>&1 || true
+    fi
+
+    coverage_ok=true
+    p0_no_tests=()
+
+    for flow_id in $P0_FLOWS; do
+      # Verificar si hay archivos de test que referencian este flujo
+      TEST_FOR_FLOW=$(find . -type f \( \
+        -name "*.spec.ts" -o -name "*.test.ts" \
+        -o -name "*.spec.js" -o -name "*.test.js" \
+        -o -name "*.spec.py" -o -name "*.test.py" \
+        -o -name "*_test.go" \
+      \) -not -path "*/node_modules/*" \
+      | xargs grep -l "$flow_id" 2>/dev/null || true)
+
+      if [[ -z "$TEST_FOR_FLOW" ]]; then
+        p0_no_tests+=("$flow_id")
+        coverage_ok=false
+      fi
+    done
+
+    # Verificar coverage total si hay reporte JSON (Jest)
+    if [[ -f "$COVERAGE_FILE" ]] && command -v node &>/dev/null; then
+      TOTAL_COVERAGE=$(node -e "
+        try {
+          const r = require('./$COVERAGE_FILE');
+          const t = r.total || r;
+          const lines = t.lines || t.line;
+          if (lines && lines.pct !== undefined) console.log(lines.pct);
+          else console.log('unknown');
+        } catch(e) { console.log('unknown'); }
+      " 2>/dev/null || echo "unknown")
+
+      if [[ "$TOTAL_COVERAGE" != "unknown" ]]; then
+        PCT=${TOTAL_COVERAGE%.*}
+        if [[ "$PCT" -lt "$COVERAGE_THRESHOLD" ]]; then
+          fail "  Coverage total: ${TOTAL_COVERAGE}% — mínimo requerido: ${COVERAGE_THRESHOLD}%"
+          coverage_ok=false
+        else
+          log "  Coverage total: ${TOTAL_COVERAGE}% ✓"
+        fi
+      fi
+    fi
+
+    if [[ ${#p0_no_tests[@]} -gt 0 ]]; then
+      fail "  Flujos P0 sin tests detectados:"
+      for f in "${p0_no_tests[@]}"; do
+        echo "    ❌ $f — no se encontraron archivos de test para este flujo"
+      done
+      echo ""
+      echo "  Los flujos P0 requieren al menos un archivo de test que los referencie."
+      echo "  Agregar el ID del flujo (ej: UF-001) en el describe o en un comentario del test."
+    fi
+
+    if [[ "$coverage_ok" == "false" ]]; then
+      fail "CHECK 4 FALLÓ — cobertura insuficiente para flujos P0"
+      FAILED=true
+    else
+      success "CHECK 4 OK — cobertura P0 verificada"
+    fi
+  fi
+fi
+
+# ─── Resultado final ──────────────────────────────────────────────────────────
+
+echo ""
+echo "────────────────────────────────────────────"
+
+if [[ ${#WARNINGS[@]} -gt 0 ]]; then
+  echo ""
+  warn "Advertencias (no bloquean el push):"
+  for w in "${WARNINGS[@]}"; do
+    echo -e "  ${YELLOW}⚠${NC}  $w"
+  done
+fi
+
+echo ""
+if [[ "$FAILED" == "true" ]]; then
+  fail "PUSH BLOQUEADO — resolver los issues arriba antes de pushear"
+  echo ""
+  echo -e "  Para saltear todos los checks: ${YELLOW}git push -o skip-governance-check${NC}"
+  echo "  (queda registrado en el historial de git — úsalo con criterio)"
+  echo ""
+  exit 1
+else
+  success "PUSH PERMITIDO — todos los checks pasaron"
+  echo ""
 fi
 
 exit 0

@@ -506,21 +506,25 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 
 ## Scripts de operación
 
-### Jira sync — crear tickets desde GAPS y TECHNICAL_DEBT
+### Propuestas de ticket — docs-system/Tickets/
 
-```bash
-# Configurar credenciales (no commitear este archivo — tiene el token)
-cp templates/jira-config.sh .governance/jira-config.sh
-# Editar: JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_TOKEN, JIRA_EMAIL
+El agente genera propuestas de ticket en Markdown durante la Fase 0 o Fase 5, cada vez que identifica un gap o deuda técnica nueva. No crea tickets en Jira — el PO lee el archivo y decide cómo y dónde crear el ticket real.
 
-bash scripts/jira-sync.sh --dry-run   # ver qué crearía
-bash scripts/jira-sync.sh             # crear tickets reales
-bash scripts/jira-sync.sh --source gaps   # solo gaps
-bash scripts/jira-sync.sh --source debt   # solo deuda técnica
+```
+docs-system/Tickets/
+├── 2026-06-25-GAP-001-stock-sin-fallback-vtex.md
+├── 2026-06-25-DEBT-003-migrar-sdk-sqs-v3.md
+└── ...
 ```
 
-Mapeo: `GAP P0` → Bug (Highest), `GAP P1` → Story (High), `GAP P2/DEBT` → Task (Medium).
-Items HUMAN_ONLY reciben label `human-only`. Idempotente — no duplica tickets existentes.
+Cada archivo tiene:
+- **¿Qué está pasando?** — en lenguaje de negocio, sin jerga técnica
+- **¿Por qué importa?** — impacto real si no se resuelve
+- **Contexto técnico** — punto de partida para el dev que lo tome
+- **Criterios de aceptación sugeridos** — el PO puede ajustar
+- **Notas para el PO** — prioridad sugerida con razón, esfuerzo estimado, dependencias, si requiere decisión de negocio
+
+El dev le pasa el MD al PO. El PO crea el ticket donde corresponda.
 
 ---
 
@@ -596,8 +600,8 @@ Solo commitea `docs-system/`. Safety check aborta si hay archivos fuera de docs-
 │   ├── ONBOARDING.template.md  ← guía para devs nuevos, generada desde docs-system
 │   ├── CHANGELOG.template.md   ← historial de cambios, actualizado en Phase 5
 │   ├── EVIDENCE_REPORT.template.md  ← artefacto de evidencia por sesión
-│   ├── hook-config.sh          ← configuración del pre-push hook por repo
-│   └── jira-config.sh          ← credenciales de Jira (no commitear)
+│   ├── TICKET_PROPOSAL.template.md  ← propuesta de ticket para el PO (sin API, sin token)
+│   └── hook-config.sh          ← configuración del pre-push hook por repo
 │
 ├── examples/
 │   └── docs-system/            ← docs-system completo de notifications-service
@@ -619,7 +623,6 @@ Solo commitea `docs-system/`. Safety check aborta si hay archivos fuera de docs-
 │   └── pre-push                ← 5 checks: Jira ticket + docs + bypass + tests + coverage P0
 │
 ├── scripts/
-│   ├── jira-sync.sh            ← crea tickets Jira desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md
 │   ├── drift-detector.sh       ← detecta divergencia entre docs-system y el código
 │   ├── adoption-metrics.sh     ← estado de adopción del framework en múltiples repos
 │   └── bulk-push-docs.sh       ← pushea docs-system a múltiples repos

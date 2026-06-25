@@ -276,23 +276,17 @@ Los escape hatches son intencionales: deben existir para no bloquear trabajo leg
 
 ---
 
-## Integración con Jira
+## Propuestas de ticket para el PO
 
-Configurar `.governance/jira-config.sh` en cada repo (no commitear — contiene el token):
+El agente no crea tickets en Jira — no tiene permisos ni token. En cambio, genera archivos Markdown en `docs-system/Tickets/` que el dev le pasa al PO para que decida.
 
-```bash
-JIRA_BASE_URL="https://empresa.atlassian.net"
-JIRA_PROJECT_KEY="STOCK"
-JIRA_TOKEN="api-token"
-JIRA_EMAIL="dev@empresa.com"
+**Cuándo se generan:** durante Phase 0 (al documentar gaps y deuda) y Phase 5 (al cerrar una sesión que introduce deuda o deja gaps abiertos).
+
+```
+docs-system/Tickets/2026-06-25-GAP-001-stock-sin-fallback.md
 ```
 
-**Crear tickets desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md:**
-
-```bash
-bash scripts/jira-sync.sh --dry-run   # preview
-bash scripts/jira-sync.sh             # crear tickets reales
-```
+Cada propuesta tiene narrativa en lenguaje de negocio (sin jerga técnica), contexto técnico para el dev que lo tome, criterios de aceptación sugeridos, y notas para el PO con prioridad razonada.
 
 **Requerir ticket Jira en el branch** — agregar a `.governance/hook-config.sh`:
 

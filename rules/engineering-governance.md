@@ -178,6 +178,30 @@ Actualizar los archivos de `/docs-system/` que correspondan:
 
 ---
 
+## Propuestas de ticket (docs-system/Tickets/)
+
+Durante la Fase 0 o la Fase 5, si se identifican gaps o deuda técnica que no tienen ticket documentado, generar una propuesta en `docs-system/Tickets/` usando `templates/TICKET_PROPOSAL.template.md`.
+
+**Cuándo generar un archivo de propuesta:**
+- Un item nuevo aparece en `GAPS.md` o `TECHNICAL_DEBT_ROADMAP.md`
+- Un gap o deuda existente escala de prioridad (ej: de P2 a P0)
+- Se descubre durante el análisis un riesgo concreto que debería quedar como ticket
+
+**Nombre del archivo:**
+```
+docs-system/Tickets/YYYY-MM-DD-[GAP-001|DEBT-003]-slug-en-minusculas.md
+```
+
+**Cómo escribirlo:**
+- La sección "¿Qué está pasando?" y "¿Por qué importa?" deben estar en lenguaje de negocio — sin jerga técnica. Debe poder leerlo alguien que no es desarrollador.
+- La sección "Contexto técnico" es para el dev que tome el trabajo.
+- Las "Notas para el PO" deben incluir la prioridad sugerida con una razón concreta, no solo la etiqueta.
+- Si el item es HUMAN_ONLY, indicarlo explícitamente en las notas al PO.
+
+**El agente NO crea tickets en Jira.** Solo genera el archivo MD. El PO decide si crear el ticket, dónde, y con qué ajustes.
+
+---
+
 ## Fase 5 — Cierre y evidencia
 
 Siempre entregar al finalizar. Si existe `.governance/evidence/`, crear un archivo `YYYY-MM-DD-{short-hash}.md` usando el template `templates/EVIDENCE_REPORT.template.md`. Si no existe esa carpeta, entregar el reporte en el chat con esta estructura:

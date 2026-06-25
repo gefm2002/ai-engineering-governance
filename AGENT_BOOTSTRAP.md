@@ -157,9 +157,24 @@ Si el agente genera un summary coherente con el sistema, el framework está func
 │   ├── cursor.mdc              ← Cursor
 │   ├── copilot.md              ← GitHub Copilot
 │   ├── claude.md               ← Claude Code
+│   ├── codex.md                ← OpenAI Codex (AGENTS.md)
 │   ├── windsurf.md             ← Windsurf
 │   ├── cline.md                ← Cline / Roo
 │   └── aider.md                ← Aider
-├── templates/                  ← templates de docs-system
-└── ci/                         ← validaciones de CI
+├── templates/
+│   ├── *.template.md           ← templates de docs-system (15 archivos)
+│   ├── hook-config.sh          ← configuración del hook por repo
+│   └── jira-config.sh          ← credenciales Jira (no commitear)
+├── hooks/
+│   └── pre-push                ← gate local: Jira ticket + docs + bypass + tests + coverage P0
+├── scripts/
+│   ├── jira-sync.sh            ← crea tickets Jira desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md
+│   ├── drift-detector.sh       ← detecta divergencia docs vs código
+│   ├── adoption-metrics.sh     ← métricas de adopción en múltiples repos
+│   └── bulk-push-docs.sh       ← pushea docs-system a múltiples repos
+└── ci/
+    ├── docs-validation-example.yml    ← bloquea PR sin docs actualizados
+    ├── quality-gate-example.yml       ← tests + bypass + coverage P0 + docs
+    ├── release-readiness-example.yml  ← gate en PRs a main
+    └── weekly-stale-docs.yml          ← detecta drift cada lunes, abre issue
 ```

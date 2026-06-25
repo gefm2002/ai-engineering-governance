@@ -266,11 +266,57 @@ El framework tiene enforcement en tres niveles para que la disciplina no dependa
 
 | Capa | Cuándo actúa | Cómo |
 |------|-------------|------|
-| **pre-push hook** | Antes del push local | Bloquea si hay código sin docs actualizado. Escape: `git push -o skip-governance-check` |
+| **pre-push hook** | Antes del push local | 5 checks: Jira ticket en branch, docs actualizado, bypass audit, tests, coverage P0. Escape: `git push -o skip-governance-check` |
 | **CI docs-validation** | En el PR (GitHub Actions) | Mismo chequeo en el servidor. Escape: título del PR incluye `[skip-docs]` |
 | **CI quality-gate** | En el PR (GitHub Actions) | Tests completos + bypass audit + coverage por criticidad de flujo |
+| **CI release-readiness** | En PRs a main | Docs completos, sin P0 gaps, P0 flows con tests, sin bypasses |
+| **CI weekly stale-docs** | Lunes 9am UTC (schedule) | Detecta drift entre docs y código, crea issue automáticamente |
 
 Los escape hatches son intencionales: deben existir para no bloquear trabajo legítimo. La condición es que sean visibles — en el historial de commits o en el título del PR — y no silenciosos.
+
+---
+
+## Integración con Jira
+
+Configurar `.governance/jira-config.sh` en cada repo (no commitear — contiene el token):
+
+```bash
+JIRA_BASE_URL="https://empresa.atlassian.net"
+JIRA_PROJECT_KEY="STOCK"
+JIRA_TOKEN="api-token"
+JIRA_EMAIL="dev@empresa.com"
+```
+
+**Crear tickets desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md:**
+
+```bash
+bash scripts/jira-sync.sh --dry-run   # preview
+bash scripts/jira-sync.sh             # crear tickets reales
+```
+
+**Requerir ticket Jira en el branch** — agregar a `.governance/hook-config.sh`:
+
+```bash
+JIRA_PROJECT_KEY="STOCK"
+```
+
+El hook CHECK 0 bloqueará pushes desde branches sin ticket: `feature/STOCK-123-descripcion`. Branches exentos: main, master, develop, release/*, hotfix/*, chore/governance-*.
+
+---
+
+## Herramientas de operación
+
+```bash
+# Detectar drift entre docs y código
+bash scripts/drift-detector.sh
+bash scripts/drift-detector.sh --fix    # + abre issue en GitHub
+
+# Ver estado de adopción en todos los repos
+bash scripts/adoption-metrics.sh --repos-file repos.txt
+
+# Subir docs a múltiples repos en bulk
+bash scripts/bulk-push-docs.sh --repos-file repos.txt --pr
+```
 
 ---
 

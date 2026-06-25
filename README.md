@@ -417,38 +417,33 @@ Todos los adapters implementan la misma regla core: [`rules/engineering-governan
 
 ### Pre-push hook (gate local)
 
-El hook bloquea el push antes de que llegue al servidor.
+El hook bloquea el push antes de que llegue al servidor. Se instala automáticamente con `install.sh`.
+
+**5 checks en secuencia:**
+
+```
+CHECK 0 — Jira ticket      → el branch debe incluir el ticket (ej: feature/PROJ-123-desc)
+                              configurable via JIRA_PROJECT_KEY en .governance/hook-config.sh
+CHECK 1 — docs-system      → código cambiado sin docs actualizado → bloqueado
+CHECK 2 — bypass audit     → .skip, .only, tests vacíos, continue-on-error → bloqueado
+CHECK 3 — full test suite  → tests fallan → bloqueado
+CHECK 4 — coverage P0      → flujos P0 sin tests o coverage < 80% → bloqueado
+```
+
+**Configurar por repo** — crear `.governance/hook-config.sh`:
 
 ```bash
-# Ya incluido en install.sh — se instala automáticamente en .git/hooks/pre-push
-# Para instalar manualmente:
-cp hooks/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+JIRA_PROJECT_KEY="STOCK"         # valida ticket en nombre del branch
+TEST_CMD="npm test"
+COVERAGE_CMD="npm run test:ci -- --coverage"
+COVERAGE_FILE="coverage/coverage-summary.json"
+COVERAGE_THRESHOLD=80
 ```
 
-**Comportamiento:**
-
+**Escape hatch** cuando el push es legítimo sin cumplir algún check:
+```bash
+git push -o skip-governance-check   # queda visible en el historial de git
 ```
-$ git push
-[governance] Push bloqueado — docs-system no actualizado
-
-  Se detectaron cambios de código sin actualización en /docs-system.
-
-  Archivos de código modificados:
-    - src/domain/sentToVtex.service.ts
-    - src/modules/vtex/buildToVtexObject.ts
-
-  Qué actualizar según el tipo de cambio:
-    Nueva funcionalidad    → PRODUCT_SURFACE.md + USER_FLOW_MATRIX.md
-    Cambio de integración  → INTEGRATIONS.md
-    Cambio de arquitectura → ARCHITECTURE.md + DIAGRAMS.md
-    Bug fix / deuda        → TECHNICAL_DEBT_ROADMAP.md
-    Gap resuelto           → GAPS.md
-
-  Si el cambio no requiere actualizar docs (ej: refactor interno):
-  git push -o skip-governance-check
-```
-
-El escape hatch queda visible en el historial de git — es una decisión consciente, no silenciosa.
 
 ---
 
@@ -459,7 +454,9 @@ El framework incluye dos archivos de CI en `ci/`:
 | Archivo | Qué hace |
 |---------|----------|
 | [`ci/docs-validation-example.yml`](ci/docs-validation-example.yml) | Bloquea el PR si hay código cambiado sin docs-system actualizado |
-| [`ci/quality-gate-example.yml`](ci/quality-gate-example.yml) | Gate completo: tests + bypass audit + coverage + docs |
+| [`ci/quality-gate-example.yml`](ci/quality-gate-example.yml) | Gate completo: tests + bypass audit + coverage P0 + docs |
+| [`ci/release-readiness-example.yml`](ci/release-readiness-example.yml) | Gate en PRs a main: docs completos, sin P0 gaps, P0 flows con tests |
+| [`ci/weekly-stale-docs.yml`](ci/weekly-stale-docs.yml) | Job semanal (lunes 9am): detecta drift y abre issue en GitHub automáticamente |
 
 ### El quality gate tiene 5 jobs
 
@@ -507,6 +504,61 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 
 ---
 
+## Scripts de operación
+
+### Jira sync — crear tickets desde GAPS y TECHNICAL_DEBT
+
+```bash
+# Configurar credenciales (no commitear este archivo — tiene el token)
+cp templates/jira-config.sh .governance/jira-config.sh
+# Editar: JIRA_BASE_URL, JIRA_PROJECT_KEY, JIRA_TOKEN, JIRA_EMAIL
+
+bash scripts/jira-sync.sh --dry-run   # ver qué crearía
+bash scripts/jira-sync.sh             # crear tickets reales
+bash scripts/jira-sync.sh --source gaps   # solo gaps
+bash scripts/jira-sync.sh --source debt   # solo deuda técnica
+```
+
+Mapeo: `GAP P0` → Bug (Highest), `GAP P1` → Story (High), `GAP P2/DEBT` → Task (Medium).
+Items HUMAN_ONLY reciben label `human-only`. Idempotente — no duplica tickets existentes.
+
+---
+
+### Drift detector — docs vs código
+
+```bash
+bash scripts/drift-detector.sh           # reporte en terminal
+bash scripts/drift-detector.sh --fix     # + abre issue en GitHub
+```
+
+Detecta: env vars documentadas pero eliminadas del código, docs con +30 días de atraso, flujos P0 sin tests, documentos con demasiados campos UNKNOWN.
+
+---
+
+### Métricas de adopción — estado de todos los repos
+
+```bash
+# repos.txt: una ruta local por línea
+bash scripts/adoption-metrics.sh --repos-file repos.txt
+bash scripts/adoption-metrics.sh --repos-file repos.txt --csv
+```
+
+Muestra tabla por repo: framework instalado, docs completos, hook activo, CI instalado, P0 tests cubiertos. Útil para ver el estado de adopción del equipo.
+
+---
+
+### Bulk push — subir docs a múltiples repos
+
+```bash
+bash scripts/bulk-push-docs.sh --repos-file repos.txt          # push directo a main
+bash scripts/bulk-push-docs.sh --repos-file repos.txt --pr     # crear PR por repo
+bash scripts/bulk-push-docs.sh --repos-file repos.txt --dry-run
+```
+
+Solo commitea `docs-system/`. Safety check aborta si hay archivos fuera de docs-system en el stage.
+
+---
+
 ## Estructura del repositorio
 
 ```
@@ -528,7 +580,7 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │   ├── cline.md                ← Cline / Roo (.clinerules)
 │   └── aider.md                ← Aider (.aider.conf.yml)
 │
-├── templates/                  ← templates para /docs-system (13 archivos)
+├── templates/                  ← templates para /docs-system y configuración
 │   ├── PRODUCT_SURFACE.template.md
 │   ├── USER_FLOW_MATRIX.template.md
 │   ├── ARCHITECTURE.template.md
@@ -540,7 +592,12 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │   ├── PRODUCT_ROADMAP.template.md
 │   ├── PERFORMANCE_REPORT.template.md
 │   ├── TESTING_STRATEGY.template.md
-│   └── DIAGRAMS.template.md
+│   ├── DIAGRAMS.template.md
+│   ├── ONBOARDING.template.md  ← guía para devs nuevos, generada desde docs-system
+│   ├── CHANGELOG.template.md   ← historial de cambios, actualizado en Phase 5
+│   ├── EVIDENCE_REPORT.template.md  ← artefacto de evidencia por sesión
+│   ├── hook-config.sh          ← configuración del pre-push hook por repo
+│   └── jira-config.sh          ← credenciales de Jira (no commitear)
 │
 ├── examples/
 │   └── docs-system/            ← docs-system completo de notifications-service
@@ -556,14 +613,22 @@ Ver el framework completo en [`ENGINEERING_GOVERNANCE.md`](ENGINEERING_GOVERNANC
 │       ├── PRODUCT_ROADMAP.md
 │       ├── PERFORMANCE_REPORT.md
 │       ├── TESTING_STRATEGY.md
-│       └── DIAGRAMS.md         ← 8 diagramas Mermaid del sistema
+│       └── DIAGRAMS.md
 │
 ├── hooks/
-│   └── pre-push                ← git hook: bloquea push sin docs-system actualizado
+│   └── pre-push                ← 5 checks: Jira ticket + docs + bypass + tests + coverage P0
+│
+├── scripts/
+│   ├── jira-sync.sh            ← crea tickets Jira desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md
+│   ├── drift-detector.sh       ← detecta divergencia entre docs-system y el código
+│   ├── adoption-metrics.sh     ← estado de adopción del framework en múltiples repos
+│   └── bulk-push-docs.sh       ← pushea docs-system a múltiples repos
 │
 └── ci/
-    ├── docs-validation-example.yml  ← bloquea PR sin docs actualizados
-    └── quality-gate-example.yml     ← gate completo: tests + bypass + coverage + docs
+    ├── docs-validation-example.yml    ← bloquea PR sin docs actualizados
+    ├── quality-gate-example.yml       ← tests + bypass audit + coverage P0 + docs
+    ├── release-readiness-example.yml  ← gate en PRs a main
+    └── weekly-stale-docs.yml          ← job semanal: detecta drift, abre issue
 ```
 
 ---

@@ -251,6 +251,8 @@ install_docs_system() {
     "PERFORMANCE_REPORT.md"
     "TESTING_STRATEGY.md"
     "DIAGRAMS.md"
+    "ONBOARDING.md"
+    "CHANGELOG.md"
   )
 
   log "Creating optional docs (fill if relevant to your project)..."
@@ -258,6 +260,13 @@ install_docs_system() {
     local template_key="${file%.md}"
     get_file "templates/${template_key}.template.md" "${docs_dir}/${file}"
   done
+
+  # Carpeta de propuestas de ticket para el PO
+  mkdir -p "${docs_dir}/Tickets"
+  if [[ ! -f "${docs_dir}/Tickets/.gitkeep" ]]; then
+    printf "# Propuestas de ticket\n\nGeneradas por el agente durante Phase 0 / Phase 5.\nCada archivo es una propuesta para que el PO decida si crear el ticket en Jira.\n" \
+      > "${docs_dir}/Tickets/README.md"
+  fi
 }
 
 # ─── Instalar git hooks ───────────────────────────────────────────────────────
@@ -438,7 +447,7 @@ show_status() {
     echo "      Ejecutar: bash install.sh (sin --no-docs)"
   else
     local required=(00_INDEX.md PRODUCT_SURFACE.md USER_FLOW_MATRIX.md ARCHITECTURE.md INTEGRATIONS.md OPERATIONS.md TECHNICAL_DEBT_ROADMAP.md GAPS.md)
-    local optional=(PLATFORM_STATE.md PRODUCT_ROADMAP.md PERFORMANCE_REPORT.md TESTING_STRATEGY.md DIAGRAMS.md)
+    local optional=(PLATFORM_STATE.md PRODUCT_ROADMAP.md PERFORMANCE_REPORT.md TESTING_STRATEGY.md DIAGRAMS.md ONBOARDING.md CHANGELOG.md)
     local missing_req=0
 
     echo "  Requeridos:"
@@ -614,7 +623,7 @@ PYEOF
   # Nuevos templates opcionales en docs-system (sin sobreescribir los existentes)
   if [[ -d "${TARGET_DIR}/docs-system" ]]; then
     log "Verificando nuevos templates opcionales en docs-system..."
-    local new_optionals=("TESTING_STRATEGY.md" "DIAGRAMS.md")
+    local new_optionals=("TESTING_STRATEGY.md" "DIAGRAMS.md" "ONBOARDING.md" "CHANGELOG.md")
     for f in "${new_optionals[@]}"; do
       local dst="${TARGET_DIR}/docs-system/${f}"
       if [[ ! -f "$dst" ]]; then
@@ -623,6 +632,14 @@ PYEOF
         warn "Nuevo template opcional añadido: docs-system/${f}"
       fi
     done
+
+    # Crear carpeta Tickets si no existe
+    if [[ ! -d "${TARGET_DIR}/docs-system/Tickets" ]]; then
+      [[ "$DRY_RUN" == "false" ]] && mkdir -p "${TARGET_DIR}/docs-system/Tickets"
+      [[ "$DRY_RUN" == "false" ]] && printf "# Propuestas de ticket\n\nGeneradas por el agente durante Phase 0 / Phase 5.\nCada archivo es una propuesta para que el PO decida si crear el ticket en Jira.\n" \
+        > "${TARGET_DIR}/docs-system/Tickets/README.md"
+      warn "Carpeta docs-system/Tickets/ creada"
+    fi
   fi
 
   echo ""

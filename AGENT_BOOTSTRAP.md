@@ -163,12 +163,11 @@ Si el agente genera un summary coherente con el sistema, el framework está func
 │   └── aider.md                ← Aider
 ├── templates/
 │   ├── *.template.md           ← templates de docs-system (15 archivos)
-│   ├── hook-config.sh          ← configuración del hook por repo
-│   └── jira-config.sh          ← credenciales Jira (no commitear)
+│   ├── TICKET_PROPOSAL.template.md  ← propuesta de ticket para el PO (sin API, sin token)
+│   └── hook-config.sh          ← configuración del hook por repo
 ├── hooks/
 │   └── pre-push                ← gate local: Jira ticket + docs + bypass + tests + coverage P0
 ├── scripts/
-│   ├── jira-sync.sh            ← crea tickets Jira desde GAPS.md y TECHNICAL_DEBT_ROADMAP.md
 │   ├── drift-detector.sh       ← detecta divergencia docs vs código
 │   ├── adoption-metrics.sh     ← métricas de adopción en múltiples repos
 │   └── bulk-push-docs.sh       ← pushea docs-system a múltiples repos

@@ -236,6 +236,8 @@ Cobertura flujos P0 afectados: N%
 - [ ] No hay bypasses nuevos sin documentar
 - [ ] Coverage flujos P0 >= 80%
 - [ ] docs-system actualizado si el comportamiento cambió
+- [ ] CHANGELOG.md actualizado con una línea que describe el cambio (si existe el archivo)
+- [ ] Si se introdujo deuda o gap nuevo: propuesta de ticket generada en docs-system/Tickets/
 - [ ] Riesgos identificados documentados
 ```
 
